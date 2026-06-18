@@ -47,6 +47,6 @@ pytest -q
 
 ## Backlog
 
-Work is tracked as 41 tickets in the Notion `DB Action Items` database, linked to the RAG project
-page. Notion is the live source of truth for status. Commit per ticket with the Req-ID in the
+Work is tracked as 43 tickets in the Notion `DB Action Items` database, linked to the RAG project
+page (M1.1 split into a synthetic seed + real authoring, plus the `M4.2-03` content-swap gate). Notion is the live source of truth for status. Commit per ticket with the Req-ID in the
 message, e.g. `feat(ingestion): chunker [M1.4-01 · L1 chunking]`. See `docs/Action_Items.md`.

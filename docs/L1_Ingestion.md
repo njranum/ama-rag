@@ -83,9 +83,11 @@ Vector Store  ←  Chroma (local dev) / Pinecone (production)
 
 **Recursion depth (working choice — confirm):** "inside the Portfolio section" means the **full subtree** under the Portfolio parent page — direct child pages *and* any pages nested beneath them — not just the immediate children. Rationale: it matches the mental model "anything I put in the Portfolio section is indexed," and the opposite failure mode (silently *not* indexing a nested detail page you intended to publish, so the widget can't answer about it) is worse for a recruiter-facing tool than over-inclusion, which the **pre-ingestion audit** already backstops. The mark-and-sweep reconcile (see *Sync strategy* below) needs a definite "current in-scope set" to diff against, so this had to be pinned down. *(If you'd rather be more conservative about exposure, direct-children-only is the alternative — flip this and the enumeration walks one level instead of recursing.)*
 
+> **Build-time content (synthetic seed, swapped at launch).** During the M1–M3 build the Portfolio subtree is populated with a **clearly-fictional persona** matched in shape to the real content (comparable page count and lengths), so ingestion and downstream calibration can run before real authoring exists. Real content is authored separately (`M1.1-01b`) and swapped in as a launch gate (`M4.2-03`); the mark-and-sweep reconcile (see *Sync strategy* below) makes the swap a content-only operation — synthetic chunks are deleted as out-of-scope, real chunks embedded, no code change. The **pre-ingestion audit applies to the real content**; synthetic content needs none. *(Recorded under "defer, don't drop" — see the cross-doc restructure note.)*
+
 **Rationale:** Avoids the need to clean up the entire Notion workspace. Messy personal notes, unrelated projects, etc. remain private by default. You stay in control by simply moving or adding pages to the Portfolio section.
 
-**Recommended content:** one page per work role, one page per project, skills/tech stack page, about me page, what I'm looking for page.
+**Recommended content:** one page per work role, one page per project, skills/tech stack page, about me page, what I'm looking for page. *(During the build these pages hold synthetic placeholder content of the same shape; see the build-time note above.)*
 
 ---
 
@@ -192,6 +194,6 @@ Vector Store  ←  Chroma (local dev) / Pinecone (production)
 - [ ]  Set up Notion internal integration and share Portfolio pages
 - [ ]  Set up Pinecone account, API key, and an index sized to the chosen model's dimension (cosine) — verify the returned vector length is 384, not the 1024 default
 - [ ]  Lock the final hosted embedding model + dimension (shared with Layer 2). Input length is **confirmed** for the working choice (`llama-text-embed-v2`, 2048-token limit ≫ ~500-token chunks); re-confirm only if the lock changes the model (e.g. to `multilingual-e5-large`)
-- [ ]  Confirm the Portfolio scope recursion depth (working choice: full subtree) and run a pre-ingestion audit of what the subtree actually contains
-- [ ]  Define consistent page templates for work experience, projects, skills
-- [ ]  Test chunking strategy against real Notion content
+- [ ]  Confirm the Portfolio scope recursion depth (working choice: full subtree). Author the **synthetic seed corpus** (`M1.1-01a`) to unblock the build; **real authoring + pre-ingestion audit deferred to `M1.1-01b`**, consumed at the `M4.2-03` swap
+- [ ]  Define **reusable** Portfolio page templates (work role / project / skills / about / looking-for) — used for both the synthetic seed and the real content (`M1.1-01a`)
+- [ ]  Test chunking against the shape-matched **synthetic seed** first; re-confirm on **real content at the `M4.2-03` swap**

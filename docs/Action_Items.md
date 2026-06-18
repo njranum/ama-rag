@@ -2,6 +2,8 @@
 
 > Companion to the layer design docs (`L1_Ingestion.md`, `L2_Query_Pipeline.md`, `L3_Presentation.md`) and the `Project_Working_Charter.md`. This documents the one-time exercise that converted the settled Layer 1–3 design into a concrete, executable backlog in Notion. It records **what** the action items are, **how** they were generated, and confirms they are **live** in the workspace — created as real Notion pages, not held as a draft.
 
+> **Update — placeholder-content restructure (actioned, live in Notion).** After the original generation, `M1.1-01` was split into **`M1.1-01a`** (synthetic seed corpus + templates — now **Claude**-executable) and **`M1.1-01b`** (real authoring + audit — Manual), and a launch-gate ticket **`M4.2-03`** (content swap → re-ingest → re-calibrate) was added. Net **43 tickets** (was 41). No new milestone or `Area` option was needed, so — unlike the original generation — **no schema change** was required. The historical "41 created live" record in §3 below is preserved as-was; the index tables in §4 and the notes in §5 reflect the current 43. *(Rationale: `Placeholder_Content_Restructure.md`.)*
+
 ---
 
 ## 1. What the action items are
@@ -44,15 +46,15 @@ And a consistent **body** structure, written to a depth an executing agent (or a
 
 ### Manual vs Claude-executed
 
-Five tickets are **purely manual** (account setup, content authoring, and a live screen-reader test) and are deliberately left untyped to distinguish them from work Claude can do:
+Five tickets are **purely manual** (account setup, real-content authoring, and a live screen-reader test) and are deliberately left untyped to distinguish them from work Claude can do:
 
 - **M0.1-01** — Set up Notion integration + share Portfolio section
 - **M0.2-01** — Create Pinecone account + API key
 - **M0.3-01** — Set up Anthropic API access + billing credits
-- **M1.1-01** — Author Portfolio content in Notion + pre-ingestion audit
+- **M1.1-01b** — Author *real* Portfolio content + pre-ingestion audit
 - **M3.6-02** — Live screen-reader test (VoiceOver + NVDA)
 
-Everything else is tagged `Research / Claude`.
+Everything else is tagged `Research / Claude` — including **M1.1-01a** (the synthetic seed corpus + templates, which Claude drafts and Nic signs off on for shape) and the Claude half of **M4.2-03** (the content swap is a mix: Nic finalises the real content, Claude re-ingests and re-calibrates).
 
 ---
 
@@ -106,7 +108,8 @@ So the answer to "were they live" is unambiguous: the action items are not a pro
 ### M1 — Ingestion (Layer 1)
 | Ticket | Title | Area | Priority | Who |
 | --- | --- | --- | --- | --- |
-| M1.1-01 | Author Portfolio content in Notion + pre-ingestion audit | Notion | High | Manual |
+| M1.1-01a | Define Portfolio page templates + synthetic seed corpus | Notion | High | Claude |
+| M1.1-01b | Author real Portfolio content + pre-ingestion audit | Notion | High | Manual |
 | M1.2-01 | Create Pinecone index (384-dim, cosine) + verify vector length | Infra | High | Claude |
 | M1.3-01 | Notion fetch: enumerate Portfolio subtree + extract text/metadata | Ingestion | High | Claude |
 | M1.4-01 | Chunker (~500 tokens, ~50 overlap, chunk position) | Ingestion | High | Claude |
@@ -150,6 +153,7 @@ So the answer to "were they live" is unambiguous: the action items are not a pro
 | M4.1-02 | Cloudflare in front (DNS/TLS/DDoS) + edge rate-limit | Infra | High | Claude |
 | M4.2-01 | Switch prod vector store to Pinecone + integrated inference | Infra | High | Claude |
 | M4.2-02 | Deploy ingestion as Lambda + EventBridge nightly | Infra | Medium | Claude |
+| M4.2-03 | Content swap: synthetic → real + re-ingest + re-calibrate (launch gate) | Ingestion | High | Claude + Manual |
 | M4.3-01 | Ship widget via GitHub Action → Azure + set prod API URL | Frontend | High | Claude |
 | M4.4-01 | End-to-end prod verification (SSE through Cloudflare, CORS) | Infra | High | Claude |
 | M4.5-01 | [Future · C2] Public portfolio pages + populate per-chunk url | Frontend | Low | Claude |
@@ -162,5 +166,5 @@ So the answer to "were they live" is unambiguous: the action items are not a pro
 ## 5. Notes carried into the backlog
 
 - **One genuinely open decision remains, flagged in M0.5-01:** the final embedding-model lock. `llama-text-embed-v2` @ 384-dim is the working choice (input length confirmed at 2048 tokens), with `multilingual-e5-large` @ 1024 recorded as the alternative and the 1024-default trap flagged for verification at lock time.
-- **Sequencing is not strictly linear.** The cross-milestone dependencies above (M2.4-03 ↔ M3.1; M3.4-01 ↔ M2.2-01; M0.5-01 → M1.2-01; M4.4-01 ↔ M2.4-01) should be honoured when ordering work, rather than working each milestone top-to-bottom in isolation.
+- **Sequencing is not strictly linear.** The cross-milestone dependencies above (M2.4-03 ↔ M3.1; M3.4-01 ↔ M2.2-01; M0.5-01 → M1.2-01; M4.4-01 ↔ M2.4-01) should be honoured when ordering work, rather than working each milestone top-to-bottom in isolation. **Added by the restructure:** `M1.1-01a` (synthetic seed) gates the rest of M1; `M1.1-01b` (real authoring) gates **`M4.2-03`** (the swap), not `M1.2`+; and `M4.2-03` depends on `M1.1-01b` + `M2.2` + `M4.2-01` and **gates `M4.4-01`** — the swap must complete before go-public verification (a fictional persona must never reach a live recruiter). If the swap changes the chips, re-run `M4.3-01`.
 - **Future work is parked, not lost.** C2 (public portfolio pages, which activate the widget's source links) and Layer 4 (operational concerns) exist as explicit `[Future]` tickets so they remain visible without being mistaken for launch-blocking scope.

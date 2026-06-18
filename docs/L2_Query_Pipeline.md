@@ -74,6 +74,8 @@ Mirrors the ingestion layer's phasing: prove the logic locally before adding any
 
 ### Phase 1 task: calibrating the relevance threshold
 
+> **Calibrated twice (synthetic → real).** Phase-1 calibration first runs against the **synthetic seed corpus** during the build. Because the seed is shape-matched, this validates that a clean should-answer/should-refuse gap *exists* and that the tooling works, and yields a **provisional / working-choice** threshold so the gate behaves during dev. The value is **re-locked against real content at the swap** (`M4.2-03`) — cosine scores are corpus-specific, so a threshold from synthetic content is provisional by definition. The eval set and the suggested-question chips are likewise synthetic-then-real. *(Restructure note — see `Placeholder_Content_Restructure.md`.)*
+
 The retrieval-gate threshold cannot be chosen from theory — cosine scores have no universal meaning (0.5 is not "50% relevant"), and the score distribution is specific to the embedding model and the content. So it is measured against real Notion content during Phase 1:
 
 1. **Build a small eval set (~15 each):**
@@ -85,11 +87,11 @@ The retrieval-gate threshold cannot be chosen from theory — cosine scores have
 
 **Doubles as a retrieval-quality smoke test:** if the two distributions overlap with no clean gap, the threshold is not the problem — retrieval is (chunking or model). A clean gap validates the whole Stage 1–2 setup at once.
 
-**Also measure the "sources-then-decline" rate (cheap add-on, informs a Layer 3 deferral):** for each *should-answer* query, note when the top chunk **clears the gate but the answer is still a decline or visibly weak** — i.e. the "weak-but-cleared" middle the hybrid gate is designed to create. This is exactly the case where the widget shows source cards above a decline. The honest provenance label (Layer 3, Decision 5) makes that acceptable regardless, but the *frequency* here is what decides whether the deferred machine-readable decline signal is ever worth building: rare → leave it deferred; common → reconsider. No extra runs needed; it's one more column in the data already being collected.
+**Also measure the "sources-then-decline" rate (cheap add-on, informs a Layer 3 deferral):** for each *should-answer* query, note when the top chunk **clears the gate but the answer is still a decline or visibly weak** — i.e. the "weak-but-cleared" middle the hybrid gate is designed to create. This is exactly the case where the widget shows source cards above a decline. The honest provenance label (Layer 3, Decision 5) makes that acceptable regardless, but the *frequency* here is what decides whether the deferred machine-readable decline signal is ever worth building: rare → leave it deferred; common → reconsider. No extra runs needed; it's one more column in the data already being collected. *(The synthetic run produces a **provisional** frequency; the figure that actually decides the deferred machine-readable-decline-signal question is the **real-content re-measurement at `M4.2-03`** — don't settle that deferral on synthetic data.)*
 
 **Threshold has two uses, same number:** the *gate decision* compares the top score ("is the best match good enough to bother?"); optionally, the same value filters individual chunks out of the top-k before they reach the prompt (drop weak padding while keeping a strong match).
 
-**Note (also a source for Layer 3):** the *should-answer* half of this eval set doubles as the source for the widget's suggested-question chips — questions already verified to be covered by the content. *(See `L3_Presentation.md`.)*
+**Note (also a source for Layer 3):** the *should-answer* half of this eval set doubles as the source for the widget's suggested-question chips — questions already verified to be covered by the content. Synthetic during the build; **regenerated from the real should-answer set at the swap** (`M4.2-03`), which re-ships the widget if the chips change. *(See `L3_Presentation.md`.)*
 
 ---
 
@@ -162,7 +164,7 @@ The retrieval-gate threshold cannot be chosen from theory — cosine scores have
 - The borderline path stays graceful: a single rigid canned message can't acknowledge or redirect, but the prompt gate can refuse in natural language and still answer weak-but-sufficient questions.
 - The two are not mutually exclusive and cost almost nothing to combine — one conditional plus one system-prompt clause.
 
-**Threshold value:** empirical and model-specific — cannot be picked from theory. Calibrated in Phase 1 against real Notion content (procedure TBD, see Open Questions). Stored as configuration, not hardcoded, so it can be retuned. Re-calibration is required if the embedding model or the chunking strategy changes.
+**Threshold value:** empirical and model-specific — cannot be picked from theory. Calibrated in Phase 1 against real Notion content (procedure TBD, see Open Questions). Stored as configuration, not hardcoded, so it can be retuned. Re-calibration is required if the embedding model or the chunking strategy changes. **Until the `M4.2-03` swap, the stored value is a *provisional working choice* calibrated on the synthetic seed; re-locked on real content at the swap** (re-calibration is already required when the content changes — this is that case).
 
 **Decline wording (consistency):** both the gate's canned decline and the prompt-side decline use the **same bare, polite wording** (*"Sorry, I don't have information about that."*) — no scope statement, no redirect — so a visitor gets a consistent response regardless of which path fired. This aligns with the Stage 3 choice of a bare decline; a scope hint could be added later if testing shows visitors floundering.
 

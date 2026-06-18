@@ -69,11 +69,14 @@ on to the next thing.
 ### Dependency graph (sequencing is NOT linear — honour these)
 
 - `M0.5-01` (model lock) **gates** `M1.2-01` (create the Pinecone index at the locked dimension).
+- `M1.1-01a` (synthetic seed corpus) **gates the rest of M1** (ingestion needs content); `M1.1-01b` (real authoring + audit) **gates `M4.2-03`** (the content swap), **not** `M1.2`+.
+- `M4.2-03` (content swap: synthetic → real + re-ingest + re-calibrate) **depends on** `M1.1-01b` + `M2.2` (calibration tooling) + `M4.2-01` (prod Pinecone), and **gates `M4.4-01`** (final verification must run against real content). If the swap changes the chips, **re-run `M4.3-01`** (re-ship widget).
 - `M3.4-01` (suggested-question chips) **depends on** `M2.2-01` (the Phase-1 should-answer eval set).
 - `M4.4-01` (end-to-end prod verification, incl. CORS) **depends on** `M2.4-01` (FastAPI/CORS).
 - `M2.4-03` (wire widget to local API) **sequences after** the `M3.1` widget scaffold.
-- Front-load the **manual** tickets — `M0.1-01`, `M0.2-01`, `M0.3-01`, `M1.1-01`, `M3.6-02` —
+- Front-load the **manual** tickets — `M0.1-01`, `M0.2-01`, `M0.3-01`, `M1.1-01b`, `M3.6-02` —
   so unattended runs aren't blocked waiting on accounts, content, or a live screen-reader test.
+  (`M1.1-01a`, the synthetic seed, is now **Claude**-executable — it's the part that isn't the heavy manual lift.)
 
 ---
 
@@ -173,6 +176,12 @@ a **PreToolUse** hook on `Bash` blocking destructive commands (`rm -rf`, force-p
 - **Lightsail billing reality.** Stopping a Lightsail instance does **not** pause billing; $3.50/mo
   requires an IPv6-only origin (viable because Cloudflare terminates IPv4 at the edge), $5/mo with
   a public IPv4 is the no-surprises default.
+- **Synthetic content during the build; the real-content swap is a launch gate.** The system is
+  built and calibrated on a clearly-fictional, shape-matched persona (`M1.1-01a`). The gate
+  **threshold is provisional** until re-calibrated on real content (`M4.2-03`), and the
+  suggested-question **chips are synthetic** until regenerated there. A fictional persona must
+  **never** reach production — `M4.2-03` must complete **before** `M4.4-01` (go-public verification)
+  and before the widget ships real answers to visitors. Real authoring is `M1.1-01b` (Manual).
 
 ---
 
