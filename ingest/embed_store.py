@@ -37,12 +37,15 @@ def _chunk_id(chunk: Chunk) -> str:
 
 
 def _chunk_metadata(chunk: Chunk) -> dict[str, Any]:
-    # url/anchor are added by M1.7-01; Chroma rejects None values, so they are omitted until then.
+    # url/anchor (M1.7-01) are nullable; stored as "" because Chroma drops None-valued keys
+    # entirely (verified), which would violate "chunks carry the keys". Layer 2 reads "" as null.
     return {
         "page_id": chunk.page_id,
         "title": chunk.title,
         "last_edited_time": chunk.last_edited_time,
         "chunk_position": chunk.chunk_position,
+        "url": chunk.url or "",
+        "anchor": chunk.anchor or "",
     }
 
 

@@ -19,8 +19,12 @@ def test_chunk_metadata_has_no_none_values() -> None:
         "title": "Title",
         "last_edited_time": "2026-06-18T00:00:00.000Z",
         "chunk_position": 0,
+        "url": "",
+        "anchor": "",
     }
-    assert all(v is not None for v in md.values())  # Chroma rejects None metadata values
+    # url/anchor are nullable but carried as "" — Chroma drops None-valued keys (verified).
+    assert "url" in md and "anchor" in md
+    assert all(v is not None for v in md.values())
 
 
 def test_store_empty_is_a_noop(tmp_path: Path) -> None:

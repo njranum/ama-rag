@@ -141,6 +141,16 @@ Vector Store  ←  Chroma (local dev) / Pinecone (production)
 
 ---
 
+### Chunk metadata: nullable source `url` / `anchor`
+
+**Decision:** Every chunk carries a public **`url`** (slug) and an optional **`anchor`** in its metadata. Both are **nullable** and empty for now — populated later when the public portfolio pages exist (C2 / `M4.5-01`). *(Req: `M1.7-01` · L1 Chunk metadata.)*
+
+**Representation (verified):** Chroma **silently drops a metadata key whose value is `None`** — `get` returns the record *without* that key — which would violate "chunks carry the `url`/`anchor` keys" and break Layer 2's straight-through `sources` passthrough. So null is stored as the **empty string `""`** (which Chroma preserves — also verified); the domain `Chunk` uses `str | None`, and Layer 2 reads `""` back as `null`.
+
+**Why stamp now:** Layer 2's fixed `sources` event reserves `url` (nullable) and `anchor` (nullable). Carrying the keys from ingestion means the widget's "read more →" links activate later with **zero widget or schema change** — only the values get filled in (C2).
+
+---
+
 ### Embedding model: hosted Pinecone Inference (revised)
 
 **Decision:** Embed chunks via a **hosted model on Pinecone Inference** — working choice `llama-text-embed-v2` at **384 dimensions**, with `input_type=passage`. This **supersedes** the original choice of `all-MiniLM-L6-v2` run locally via `sentence-transformers`.

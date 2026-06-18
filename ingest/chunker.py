@@ -33,6 +33,8 @@ class Chunk:
     last_edited_time: str
     chunk_position: int
     text: str
+    url: str | None = None
+    anchor: str | None = None
 
 
 def estimate_tokens(text: str) -> int:
