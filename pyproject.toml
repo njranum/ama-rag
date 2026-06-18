@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rag-portfolio"
+version = "0.1.0"
+description = "Backend for Nic's RAG 'ask me anything' portfolio widget (Layer 1 ingestion + Layer 2 query/serving, plus the Layer 4 cloud rollout)."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+# Dependencies are split by layer, matching the architecture. Embedding is a HOSTED
+# Pinecone Inference call — there is deliberately NO sentence-transformers / torch here.
+[project.optional-dependencies]
+# Layer 1 — Offline ingestion: Notion -> chunk -> hosted embed -> vector store.
+ingest = [
+    "notion-client",
+    "pinecone",
+    "chromadb",
+]
+# Layer 2 — Query pipeline & serving: retrieve -> gate -> prompt -> Claude Haiku 4.5 -> FastAPI/SSE.
+query = [
+    "anthropic",
+    "fastapi",
+    "uvicorn",
+    "pinecone",
+    "chromadb",
+]
+# Everything needed for local development: both layers + lint/type/test tooling.
+dev = [
+    "rag-portfolio[ingest,query]",
+    "ruff",
+    "mypy",
+    "pytest",
+]
+
+[tool.setuptools]
+packages = ["ingest", "query"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]

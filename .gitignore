@@ -1,0 +1,22 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Local vector store (Chroma dev)
+.chroma/
+chroma/
+
+# Node — the Layer 3 widget lives in a separate Next.js repo; guard anyway
+node_modules/
+
+# macOS
+.DS_Store
