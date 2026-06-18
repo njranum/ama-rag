@@ -184,6 +184,12 @@ a **PreToolUse** hook on `Bash` blocking destructive commands (`rm -rf`, force-p
 `query:`/`passage:` markers — if the lock lands there). The **strategy** (hosted, not local) is
 settled; only the exact model/dimension is open. This lock gates the Pinecone index dimension.
 
+> **RESOLVED — LOCKED (M0.5-01, 2026-06-18).** Lock = **`llama-text-embed-v2` @ 384-dim, cosine**
+> (`input_type=passage` for chunks, `query` for queries). Verified against the live Pinecone
+> catalogue with a 384-length test embed (1024 default avoided); recorded in `config.py`
+> (`EMBED_MODEL`/`EMBED_DIM`/`EMBED_METRIC`). This decision is now closed — `M1.2-01` creates the
+> index at 384/cosine.
+
 ---
 
 ## Out of scope here (don't pull these into backend work)

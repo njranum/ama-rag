@@ -106,6 +106,8 @@ The retrieval-gate threshold cannot be chosen from theory — cosine scores have
 
 **Working model choice:** `llama-text-embed-v2`, configured for **384-dimension** output (it supports variable dimensions and benchmarks above OpenAI's large model). Alternative on the same endpoint: `multilingual-e5-large` (1024-dim). Final model lock is a minor open sub-decision; the *strategy* (hosted, not local) is settled.
 
+> **LOCKED — M0.5-01 (verified, 2026-06-18).** Query embedding is locked to **`llama-text-embed-v2` @ 384-dim, cosine, `input_type=query`** — same model as the L1 chunks (the seam). Confirmed live via `pc.inference.list_models()` + a 384-length test embed; recorded in `config.py`. Retuning the retrieval-gate threshold (M2.2) is only required if this model/dimension later changes.
+
 **Rationale (original — Lambda-era; see Update above):**
 
 - **Cold start, not dollars, is the real cost.** At portfolio traffic the whole pipeline sits inside Lambda's free tier either way (~33k free requests/month at 3 GB × ~4s), so cost is not the deciding factor.

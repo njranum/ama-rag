@@ -147,6 +147,8 @@ Vector Store  ←  Chroma (local dev) / Pinecone (production)
 
 **Final model lock is a minor open sub-decision:** `llama-text-embed-v2` @ 384 (working choice) vs `multilingual-e5-large` @ 1024. The *strategy* (hosted, not local) is settled.
 
+> **LOCKED — M0.5-01 (verified against the live API, 2026-06-18).** Lock = **`llama-text-embed-v2` @ 384-dim, cosine, `input_type=passage`** (queries `query` in L2). `pc.inference.list_models()` confirmed the model is hosted (catalogue: `llama-text-embed-v2`, `multilingual-e5-large`, `pinecone-sparse-english-v0`, plus rerankers); a `dimension=384` passage embed returned a 384-length vector — the 1024 default trap avoided. Recorded in `config.py` (`EMBED_MODEL`/`EMBED_DIM`/`EMBED_METRIC`). `multilingual-e5-large` @ 1024 set aside. The "working choice" wording above is retained for history.
+
 ---
 
 ### Vector store: Chroma (dev) + Pinecone (prod)

@@ -20,6 +20,12 @@ constitution and `docs/` for the authoritative design + decision logs.
 
 Embedding is a **hosted API call** — there is deliberately no `sentence-transformers` / `torch`.
 
+**Locked decisions** (see `config.py`):
+
+- Embedding model: **`llama-text-embed-v2` @ 384-dim**, metric **cosine**, on Pinecone Inference
+  (`input_type=passage` for chunks, `query` for queries). Locked in `M0.5-01`, verified against the
+  live API.
+
 ## Setup
 
 ```bash
