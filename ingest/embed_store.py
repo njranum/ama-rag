@@ -83,6 +83,20 @@ def store_chunks(chunks: list[Chunk], vectors: list[list[float]], *, collection:
     return len(chunks)
 
 
+def stored_page_state(collection: Any) -> dict[str, str]:
+    """Map page_id -> last_edited_time from stored chunk metadata (its own sync state)."""
+    got = collection.get(include=["metadatas"])
+    state: dict[str, str] = {}
+    for md in got["metadatas"]:
+        state[md["page_id"]] = md["last_edited_time"]
+    return state
+
+
+def delete_page(collection: Any, page_id: str) -> None:
+    """Delete every chunk belonging to a page id."""
+    collection.delete(where={"page_id": page_id})
+
+
 def _embed_query(pc: Any, question: str) -> list[float]:
     resp = pc.inference.embed(
         model=config.EMBED_MODEL,
