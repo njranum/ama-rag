@@ -199,6 +199,8 @@ Vector Store  ←  Chroma (local dev) / Pinecone (production)
 
 **Rationale:** No point running cloud infrastructure for ingestion while the vector store is still local. EventBridge is a trivial addition at deploy time and costs nothing at this scale.
 
+> **Built, not necessarily enabled (`M1.8-01`).** The wrapper `scripts/run_ingest.sh` exists and is proven to run the incremental sync cron-style (pins repo cwd + absolute venv python; secrets from `.env`; appends to `ingest.log`). Whether the `crontab` entry is actually **installed is deliberately deferred** — in local dev the ingest is run on demand, and the nightly schedule is intended to be switched on at the **production cutover**. It's kept in the architecture so the automation path is complete and documented, not because it must run now. macOS caveat: cron does not fire while the machine is asleep — `launchd` (`StartCalendarInterval`) is the catch-up-on-wake alternative if/when it's enabled.
+
 ---
 
 ## Libraries & Dependencies
