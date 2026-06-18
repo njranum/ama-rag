@@ -126,6 +126,31 @@ Vector Store  ←  Chroma (local dev) / Pinecone (production)
 
 ---
 
+### Chunking: ~500-token windows + word-based token approximation
+
+**Decision:** Split page text into **~500-token windows with ~50-token overlap**, carrying a `chunk_position` ordinal. The token budget is approximated by **whitespace word count** (~0.75 words/token), *not* the embedding model's exact tokeniser. *(Req: `M1.4-01` · L1 Chunk.)*
+
+**Rationale:**
+- `llama-text-embed-v2` is **hosted** (no local `torch`/`transformers`), so its exact tokeniser isn't available in-process — and pulling a model tokeniser in would reintroduce the heavy dependency the hosted-embedding switch deliberately removed.
+- Exact token counting is **not load-bearing here**: the model's **2048-token input cap is ~4× the ~500-token target**, so a generous word-based approximation stays comfortably within range. The failure mode that mattered — exceeding the cap and silently truncating — cannot happen with this much headroom.
+- ~500 tokens balances retrieval precision (smaller → more precise passages) against answer coherence; ~50-token overlap stops an answer being split across a boundary.
+
+**Rejected / deferred alternative:** add **`tiktoken`** for a closer token count. It's lightweight (no `torch`), but it's still only an *approximation* of the Llama tokeniser and adds a dependency to the locked baseline for no practical gain at this scale. Revisit only if real content (`M1.1-01b`) introduces pages long enough to approach the 2048 cap, or if the embedding-model lock changes.
+
+**Implementation:** `ingest/chunker.py` — `chunk_text` / `chunk_page` / `chunk_pages` and the `Chunk` record. Word window = `round(chunk_tokens * 0.75)`, overlap = `round(overlap_tokens * 0.75)`.
+
+---
+
+### Chunk metadata: nullable source `url` / `anchor`
+
+**Decision:** Every chunk carries a public **`url`** (slug) and an optional **`anchor`** in its metadata. Both are **nullable** and empty for now — populated later when the public portfolio pages exist (C2 / `M4.5-01`). *(Req: `M1.7-01` · L1 Chunk metadata.)*
+
+**Representation (verified):** Chroma **silently drops a metadata key whose value is `None`** — `get` returns the record *without* that key — which would violate "chunks carry the `url`/`anchor` keys" and break Layer 2's straight-through `sources` passthrough. So null is stored as the **empty string `""`** (which Chroma preserves — also verified); the domain `Chunk` uses `str | None`, and Layer 2 reads `""` back as `null`.
+
+**Why stamp now:** Layer 2's fixed `sources` event reserves `url` (nullable) and `anchor` (nullable). Carrying the keys from ingestion means the widget's "read more →" links activate later with **zero widget or schema change** — only the values get filled in (C2).
+
+---
+
 ### Embedding model: hosted Pinecone Inference (revised)
 
 **Decision:** Embed chunks via a **hosted model on Pinecone Inference** — working choice `llama-text-embed-v2` at **384 dimensions**, with `input_type=passage`. This **supersedes** the original choice of `all-MiniLM-L6-v2` run locally via `sentence-transformers`.
@@ -173,6 +198,8 @@ Vector Store  ←  Chroma (local dev) / Pinecone (production)
 **Decision:** Phase 2 uses macOS `crontab`; Phase 3 migrates to AWS EventBridge when the query API is deployed.
 
 **Rationale:** No point running cloud infrastructure for ingestion while the vector store is still local. EventBridge is a trivial addition at deploy time and costs nothing at this scale.
+
+> **Built, not necessarily enabled (`M1.8-01`).** The wrapper `scripts/run_ingest.sh` exists and is proven to run the incremental sync cron-style (pins repo cwd + absolute venv python; secrets from `.env`; appends to `ingest.log`). Whether the `crontab` entry is actually **installed is deliberately deferred** — in local dev the ingest is run on demand, and the nightly schedule is intended to be switched on at the **production cutover**. It's kept in the architecture so the automation path is complete and documented, not because it must run now. macOS caveat: cron does not fire while the machine is asleep — `launchd` (`StartCalendarInterval`) is the catch-up-on-wake alternative if/when it's enabled.
 
 ---
 

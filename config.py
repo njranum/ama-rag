@@ -35,6 +35,15 @@ EMBED_MODEL: str = "llama-text-embed-v2"
 EMBED_DIM: int = 384
 EMBED_METRIC: str = "cosine"
 
+# --- Pinecone index (M1.2-01) — production vector store at the locked dimension ---------
+PINECONE_INDEX: str = "portfolio-rag"
+PINECONE_CLOUD: str = "aws"
+PINECONE_REGION: str = "us-east-1"  # Pinecone Starter free-tier constraint
+
+# --- Local vector store (Chroma, Phase-1 dev) ------------------------------------------
+CHROMA_PATH: str = ".chroma"
+CHROMA_COLLECTION: str = "portfolio"
+
 # --- Secrets / ids (from .env; server-side only) ---------------------------------------
 PINECONE_API_KEY: str | None = os.environ.get("PINECONE_API_KEY")
 ANTHROPIC_API_KEY: str | None = os.environ.get("ANTHROPIC_API_KEY")

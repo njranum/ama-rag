@@ -18,5 +18,8 @@ chroma/
 # Node — the Layer 3 widget lives in a separate Next.js repo; guard anyway
 node_modules/
 
+# Logs (cron ingestion output)
+*.log
+
 # macOS
 .DS_Store
