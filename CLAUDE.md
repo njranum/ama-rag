@@ -17,10 +17,10 @@ This repo is the **Python backend** of the system:
   Claude Haiku 4.5 (streamed) → FastAPI `POST /v1/ask` (SSE).
 - **Layer 4 cloud rollout** of the above (Lightsail + Cloudflare; Lambda + EventBridge).
 
-**The frontend widget (Layer 3) does NOT live here.** It is a first-party `'use client'`
-component inside Nic's **existing Next.js site repo**, shipped via that repo's GitHub Action →
-Azure pipeline. Treat M3 tickets as belonging to that other repo. (If you are ever pointed at a
-monorepo instead, adjust these paths — but assume separate repos unless told otherwise.)
+**The frontend widget (Layer 3) lives in this repo under `web/` (monorepo).** It is a first-party
+`'use client'` Next.js component, shipped via a GitHub Action → Azure pipeline (M4.3). *(Decided at
+M3.1 — superseding the original plan that put Layer 3 in Nic's separate Next.js site repo, and the
+M0.4 note that "no `web/` dir" applies. The `web/` Next.js app is the home for all M3 tickets.)*
 
 ---
 
