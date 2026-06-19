@@ -46,10 +46,11 @@ CHROMA_COLLECTION: str = "portfolio"
 
 # --- Query pipeline (Layer 2) ----------------------------------------------------------
 TOP_K: int = 4  # retrieved chunks per query (tunable knob)
-# Relevance-gate threshold (cosine similarity, higher-is-better). PROVISIONAL working choice —
-# calibrated empirically against the Phase-1 eval set in M2.2-02. Conservative/low so it fires
-# only on clearly off-topic input. (Synthetic corpus; re-locked on real content at M4.2-03.)
-RELEVANCE_THRESHOLD: float = 0.15
+# Relevance-gate threshold (cosine similarity, higher-is-better). Calibrated in M2.2-02 against the
+# Phase-1 eval set: sits just below the lowest should-answer score (0.413), rejecting all 15
+# should-refuse (highest 0.402) — a clean but narrow gap. PROVISIONAL (synthetic corpus); re-locked
+# on real content at M4.2-03. Re-derive with `python -m query.calibrate`.
+RELEVANCE_THRESHOLD: float = 0.403
 
 # --- Secrets / ids (from .env; server-side only) ---------------------------------------
 PINECONE_API_KEY: str | None = os.environ.get("PINECONE_API_KEY")
