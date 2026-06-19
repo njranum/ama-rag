@@ -1,50 +1,81 @@
 "use client";
 
 /**
- * Inline ask-me-anything widget — M3.1-01 scaffold (L3 Decisions 1, 2, 10).
+ * Inline ask-me-anything widget (M3.1-01 scaffold; M3.2 state + rendering).
  *
- * A first-party `'use client'` component (streaming forces client-side) that mounts inline in the
- * page flow. It reads the non-secret API base URL from `NEXT_PUBLIC_API_BASE_URL` and consumes the
- * /v1/ask SSE contract via the hand-rolled parser (M3.1-02).
- *
- * This is the minimal scaffold: a basic useState model proves the parser + streaming end-to-end.
- * Later slices refine it — useReducer state machine (M3.2), source cards (M3.3), error policy
- * (M3.5), accessibility (M3.6), and styling/CSS Modules (M3.7).
+ * A first-party `'use client'` component (streaming forces client-side) mounted inline in the page
+ * flow. State is driven by a typed `useReducer` machine (M3.2-01 / L3 D4); the answer renders as
+ * plain text with `white-space: pre-wrap` and completed Q→A→Sources pairs accumulate in a bounded,
+ * internally-scrolling transcript (M3.2-02 / L3 D4+D6). Later slices refine it: source cards (M3.3),
+ * error policy + abort/timeout (M3.5), accessibility (M3.6), CSS-Modules styling (M3.7).
  */
 
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useReducer, useRef, useState } from "react";
 
+import { type ErrorKind, initialState, reducer } from "@/lib/reducer";
 import { parseSseStream } from "@/lib/sse";
+import type { Source } from "@/lib/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
-interface Source {
-  title: string;
-  text: string;
-  url: string | null;
-  anchor: string | null;
-}
+const ERROR_COPY: Record<ErrorKind, string> = {
+  rate_limited: "You're asking a little quickly — give it a moment and try again.",
+  stream: "Something went wrong generating an answer. Please try again.",
+  network: "Couldn't reach the server. Check your connection and try again.",
+};
 
-type Status = "idle" | "streaming" | "error";
+function ExchangeView({
+  question,
+  answer,
+  sources,
+  pending = false,
+  errorText = null,
+}: {
+  question: string;
+  answer: string;
+  sources: Source[];
+  pending?: boolean;
+  errorText?: string | null;
+}) {
+  return (
+    <div>
+      <p style={{ fontWeight: 600, margin: "0 0 0.25rem" }}>{question}</p>
+      {errorText ? (
+        <p role="alert" style={{ color: "#b00020", margin: 0 }}>
+          {errorText}
+        </p>
+      ) : (
+        <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{answer || (pending ? "…" : "")}</p>
+      )}
+      {sources.length > 0 && (
+        <ul
+          style={{ fontSize: "0.85rem", color: "#555", margin: "0.5rem 0 0", paddingLeft: "1.2rem" }}
+        >
+          {sources.map((s, i) => (
+            <li key={`${s.title}-${i}`}>{s.title}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export default function AskWidget() {
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [sources, setSources] = useState<Source[]>([]);
-  const [status, setStatus] = useState<Status>("idle");
+  const [state, dispatch] = useReducer(reducer, initialState);
   const abortRef = useRef<AbortController | null>(null);
+
+  const busy = state.status === "submitting" || state.status === "streaming";
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     const q = question.trim();
-    if (!q || status === "streaming") return;
+    if (!q || busy) return;
+    setQuestion("");
+    dispatch({ type: "SUBMIT", question: q });
 
-    setAnswer("");
-    setSources([]);
-    setStatus("streaming");
     const controller = new AbortController();
     abortRef.current = controller;
-
     try {
       const res = await fetch(`${API_BASE}/v1/ask`, {
         method: "POST",
@@ -52,54 +83,81 @@ export default function AskWidget() {
         body: JSON.stringify({ question: q }),
         signal: controller.signal,
       });
-      // Check status before reading the body — the 429 branch arrives pre-stream (M3.5-01).
-      if (res.status === 429 || !res.ok || !res.body) {
-        setStatus("error");
+      // 429 arrives pre-stream — branch on status before touching the body (L3 D4).
+      if (res.status === 429) {
+        dispatch({ type: "ERROR", kind: "rate_limited" });
+        return;
+      }
+      if (!res.ok || !res.body) {
+        dispatch({ type: "ERROR", kind: "stream" });
         return;
       }
       for await (const evt of parseSseStream(res.body)) {
         if (evt.event === "sources") {
-          setSources(JSON.parse(evt.data).sources as Source[]);
+          dispatch({ type: "SOURCES", sources: JSON.parse(evt.data).sources as Source[] });
         } else if (evt.event === "delta") {
           const { text } = JSON.parse(evt.data) as { text: string };
-          setAnswer((prev) => prev + text);
+          dispatch({ type: "DELTA", text });
+        } else if (evt.event === "done") {
+          dispatch({ type: "DONE" });
         } else if (evt.event === "error") {
-          setStatus("error");
-          return;
+          dispatch({ type: "ERROR", kind: "stream" });
         }
       }
-      setStatus((prev) => (prev === "error" ? prev : "idle"));
     } catch {
-      setStatus("error");
+      dispatch({ type: "ERROR", kind: "network" });
     }
   }
 
+  const showLive = state.status !== "idle" && state.status !== "done";
+  const isEmpty = state.transcript.length === 0 && !showLive;
+
   return (
-    <section>
-      <form onSubmit={onSubmit}>
+    <section style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+      <div
+        style={{
+          maxHeight: 360,
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: "1rem",
+          padding: "0.75rem",
+          border: "1px solid #ddd",
+          borderRadius: 8,
+        }}
+      >
+        {state.transcript.map((ex, i) => (
+          <ExchangeView key={i} question={ex.question} answer={ex.answer} sources={ex.sources} />
+        ))}
+        {showLive && (
+          <ExchangeView
+            question={state.question}
+            answer={state.answer}
+            sources={state.sources}
+            pending={state.status === "submitting"}
+            errorText={state.status === "error" ? ERROR_COPY[state.error ?? "stream"] : null}
+          />
+        )}
+        {isEmpty && <p style={{ color: "#666", margin: 0 }}>Ask a question to get started.</p>}
+      </div>
+
+      <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
         <textarea
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           rows={3}
           maxLength={500}
           placeholder="What would you like to know?"
-          style={{ width: "100%" }}
+          style={{ width: "100%", padding: "0.5rem", fontFamily: "inherit" }}
         />
-        <button type="submit" disabled={status === "streaming" || !question.trim()}>
-          {status === "streaming" ? "Asking…" : "Ask"}
+        <button
+          type="submit"
+          disabled={busy || !question.trim()}
+          style={{ alignSelf: "flex-start" }}
+        >
+          {busy ? "Asking…" : "Ask"}
         </button>
       </form>
-
-      {status === "error" && <p role="alert">Something went wrong. Please try again.</p>}
-      {answer && <p style={{ whiteSpace: "pre-wrap" }}>{answer}</p>}
-
-      {sources.length > 0 && (
-        <ul>
-          {sources.map((s, i) => (
-            <li key={`${s.title}-${i}`}>{s.title}</li>
-          ))}
-        </ul>
-      )}
     </section>
   );
 }
