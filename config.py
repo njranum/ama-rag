@@ -58,6 +58,14 @@ GEN_TEMPERATURE: float = 0.2  # low — faithful, grounded; reduces drift/halluc
 GEN_MAX_TOKENS: int = 400  # caps answer length, cost, latency
 GEN_TIMEOUT_S: float = 20.0  # request timeout; on any error we surface a graceful fallback
 
+# --- Serving / API (Layer 2 — M2.4: FastAPI POST /v1/ask) ------------------------------
+MAX_QUESTION_CHARS: int = 500  # cap doubles as a cheap abuse/cost guard
+RATE_LIMIT_PER_MIN: int = 30  # app-level backstop; edge limits tuned at M4.1 (Cloudflare)
+# CORS allowlist: local dev origin always; production site origin added once known (env).
+CORS_ORIGINS: list[str] = ["http://localhost:3000"] + (
+    [os.environ["PROD_SITE_ORIGIN"]] if os.environ.get("PROD_SITE_ORIGIN") else []
+)
+
 # --- Secrets / ids (from .env; server-side only) ---------------------------------------
 PINECONE_API_KEY: str | None = os.environ.get("PINECONE_API_KEY")
 ANTHROPIC_API_KEY: str | None = os.environ.get("ANTHROPIC_API_KEY")
