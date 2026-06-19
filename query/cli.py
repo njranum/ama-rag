@@ -3,8 +3,8 @@
 Usage:  python -m query.cli "Your question here"
 
 Embeds the question, retrieves top-k chunks from Chroma, applies the relevance gate, and prints
-either the canned decline (gate failed — no LLM call) or the ranked source chunks. This is Stages
-1-2 of the online pipeline, proven on the terminal before the FastAPI/SSE layer (M2.4).
+either the canned decline (gate failed — no LLM call) or a streamed, grounded answer from Claude
+Haiku 4.5 (gate passed). Stages 1-4 of the online pipeline, proven on the terminal before M2.4.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import sys
 
 import config
 from query.gate import DECLINE_MESSAGE, is_relevant
+from query.generate import stream_answer
 from query.retrieval import retrieve
 
 
@@ -37,10 +38,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print(f"Q: {question}\n")
-    for i, r in enumerate(results, 1):
-        snippet = " ".join(r.text.split())[:160]
-        print(f"{i}. {r.title}  (sim={r.similarity:.3f}, chunk {r.chunk_position})")
-        print(f"   {snippet}...")
+    for token in stream_answer(question, results):
+        print(token, end="", flush=True)
+    print("\n\nsources:")
+    for r in results:
+        print(f"  - {r.title}  (sim={r.similarity:.3f})")
     return 0
 
 

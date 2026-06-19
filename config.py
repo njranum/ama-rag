@@ -52,6 +52,12 @@ TOP_K: int = 4  # retrieved chunks per query (tunable knob)
 # on real content at M4.2-03. Re-derive with `python -m query.calibrate`.
 RELEVANCE_THRESHOLD: float = 0.403
 
+# --- Generation (Layer 2, Stage 4) — Claude Haiku 4.5 via the Anthropic Messages API ---
+GEN_MODEL: str = "claude-haiku-4-5"  # bare alias; grounded extractive QA — smallest model is plenty
+GEN_TEMPERATURE: float = 0.2  # low — faithful, grounded; reduces drift/hallucination
+GEN_MAX_TOKENS: int = 400  # caps answer length, cost, latency
+GEN_TIMEOUT_S: float = 20.0  # request timeout; on any error we surface a graceful fallback
+
 # --- Secrets / ids (from .env; server-side only) ---------------------------------------
 PINECONE_API_KEY: str | None = os.environ.get("PINECONE_API_KEY")
 ANTHROPIC_API_KEY: str | None = os.environ.get("ANTHROPIC_API_KEY")
