@@ -131,7 +131,7 @@ pytest -q
 
 # Run the query pipeline locally
 python query.py "What is Nic's experience with AWS?"   # Phase 1 CLI
-uvicorn app:app --reload --port 8000                   # Phase 2 local API
+uvicorn query.api:app --reload --port 8000             # Phase 2 local API (M2.4)
 
 # Run ingestion locally
 python ingest.py                                       # Phase 1 manual

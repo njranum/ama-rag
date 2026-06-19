@@ -44,6 +44,28 @@ PINECONE_REGION: str = "us-east-1"  # Pinecone Starter free-tier constraint
 CHROMA_PATH: str = ".chroma"
 CHROMA_COLLECTION: str = "portfolio"
 
+# --- Query pipeline (Layer 2) ----------------------------------------------------------
+TOP_K: int = 4  # retrieved chunks per query (tunable knob)
+# Relevance-gate threshold (cosine similarity, higher-is-better). Calibrated in M2.2-02 against the
+# Phase-1 eval set: sits just below the lowest should-answer score (0.413), rejecting all 15
+# should-refuse (highest 0.402) — a clean but narrow gap. PROVISIONAL (synthetic corpus); re-locked
+# on real content at M4.2-03. Re-derive with `python -m query.calibrate`.
+RELEVANCE_THRESHOLD: float = 0.403
+
+# --- Generation (Layer 2, Stage 4) — Claude Haiku 4.5 via the Anthropic Messages API ---
+GEN_MODEL: str = "claude-haiku-4-5"  # bare alias; grounded extractive QA — smallest model is plenty
+GEN_TEMPERATURE: float = 0.2  # low — faithful, grounded; reduces drift/hallucination
+GEN_MAX_TOKENS: int = 400  # caps answer length, cost, latency
+GEN_TIMEOUT_S: float = 20.0  # request timeout; on any error we surface a graceful fallback
+
+# --- Serving / API (Layer 2 — M2.4: FastAPI POST /v1/ask) ------------------------------
+MAX_QUESTION_CHARS: int = 500  # cap doubles as a cheap abuse/cost guard
+RATE_LIMIT_PER_MIN: int = 30  # app-level backstop; edge limits tuned at M4.1 (Cloudflare)
+# CORS allowlist: local dev origin always; production site origin added once known (env).
+CORS_ORIGINS: list[str] = ["http://localhost:3000"] + (
+    [os.environ["PROD_SITE_ORIGIN"]] if os.environ.get("PROD_SITE_ORIGIN") else []
+)
+
 # --- Secrets / ids (from .env; server-side only) ---------------------------------------
 PINECONE_API_KEY: str | None = os.environ.get("PINECONE_API_KEY")
 ANTHROPIC_API_KEY: str | None = os.environ.get("ANTHROPIC_API_KEY")
