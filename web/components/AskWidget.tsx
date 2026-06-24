@@ -12,6 +12,7 @@
 
 import { type FormEvent, useReducer, useRef, useState } from "react";
 
+import SourceCards from "@/components/SourceCards";
 import { type ErrorKind, initialState, reducer } from "@/lib/reducer";
 import { parseSseStream } from "@/lib/sse";
 import type { Source } from "@/lib/types";
@@ -47,15 +48,7 @@ function ExchangeView({
       ) : (
         <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{answer || (pending ? "…" : "")}</p>
       )}
-      {sources.length > 0 && (
-        <ul
-          style={{ fontSize: "0.85rem", color: "#555", margin: "0.5rem 0 0", paddingLeft: "1.2rem" }}
-        >
-          {sources.map((s, i) => (
-            <li key={`${s.title}-${i}`}>{s.title}</li>
-          ))}
-        </ul>
-      )}
+      <SourceCards sources={sources} />
     </div>
   );
 }

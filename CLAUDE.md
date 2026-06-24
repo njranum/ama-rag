@@ -130,11 +130,19 @@ mypy .                                   # or pyright
 pytest -q
 
 # Run the query pipeline locally
-python query.py "What is Nic's experience with AWS?"   # Phase 1 CLI
-uvicorn query.api:app --reload --port 8000             # Phase 2 local API (M2.4)
+python -m query.cli "What is Nic's experience with AWS?"   # Phase 1 CLI (retrieve→gate→answer)
+uvicorn query.api:app --reload --port 8000                 # Phase 2 local API (M2.4, SSE)
 
 # Run ingestion locally
-python ingest.py                                       # Phase 1 manual
+python -m ingest.sync        # incremental sync (use ingest.embed_store for a full re-stamp)
+
+# Layer 3 widget (web/ — monorepo Next.js app). Its OWN toolchain — run these for any M3+ slice
+# (the Python ruff/mypy/pytest do NOT cover web/):
+cd web && npm install
+npm run test        # vitest (SSE parser, reducer, source grouping)
+npm run typecheck   # tsc --noEmit
+npm run build       # next build
+npm run dev         # local widget at http://localhost:3000  (NEXT_PUBLIC_API_BASE_URL in .env.local)
 ```
 
 Hooks (recommended, wire in early): a **PostToolUse** hook on `Edit|Write` running
