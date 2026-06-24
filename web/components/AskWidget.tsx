@@ -9,12 +9,14 @@
  * internally-scrolling transcript (M3.2-02 / L3 D4+D6). Source cards (M3.3); empty-state chips +
  * input defaults (M3.4 / L3 D6); client error & resilience — TTFB timeout, keep-partial, manual
  * retry, abort-on-unmount (M3.5 / L3 D7); a11y — hidden polite live region announcing the settled
- * answer/decline/error once, label, focus-stays-on-input, structural prefixes (M3.6 / L3 D8).
- * Later slice: CSS-Modules styling, contrast, reduced-motion (M3.7).
+ * answer/decline/error once, label, focus-stays-on-input, structural prefixes (M3.6 / L3 D8);
+ * styling & theming — CSS Modules + root reset, owned custom-property palette, AA contrast,
+ * reduced-motion, dark mode (M3.7 / L3 D9).
  */
 
 import { type FormEvent, type KeyboardEvent, useEffect, useReducer, useRef, useState } from "react";
 
+import styles from "@/components/AskWidget.module.css";
 import SourceCards from "@/components/SourceCards";
 import { announcementText } from "@/lib/announce";
 import { SUGGESTED_QUESTIONS } from "@/lib/chips";
@@ -80,18 +82,18 @@ function ExchangeView({
   // once on completion rather than token-by-token. Error copy is a plain styled <p> (not role=alert,
   // which is assertive) — the polite region carries it to AT instead.
   return (
-    <div>
-      <p style={{ fontWeight: 600, margin: "0 0 0.25rem" }}>
+    <div className={styles.exchange}>
+      <p className={styles.question}>
         <span style={srOnly}>You asked: </span>
         {question}
       </p>
       {error !== null && answer.length === 0 ? (
-        <p style={{ color: "#b00020", margin: 0 }}>{ERROR_COPY[error]}</p>
+        <p className={styles.errorText}>{ERROR_COPY[error]}</p>
       ) : (
-        <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+        <p className={styles.answer}>
           <span style={srOnly}>Answer: </span>
-          {answer || (pending ? "…" : "")}
-          {interrupted && <span style={{ color: "#888" }}> — the response was interrupted</span>}
+          {answer || (pending ? <span className={styles.pending}>…</span> : "")}
+          {interrupted && <span className={styles.interrupted}> — the response was interrupted</span>}
         </p>
       )}
       <SourceCards sources={sources} />
@@ -199,25 +201,14 @@ export default function AskWidget() {
   const announcement = announcementText(state, ERROR_COPY);
 
   return (
-    <section style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+    <section className={styles.widget}>
       {/* Present and empty from first render (L3 D8) — a dynamically-injected live region needs a
           delay before AT picks it up. polite + atomic so the whole settled answer is one coherent
           announcement, never the assertive interrupt. */}
       <div aria-live="polite" aria-atomic="true" style={srOnly}>
         {announcement}
       </div>
-      <div
-        style={{
-          maxHeight: 360,
-          overflowY: "auto",
-          display: "flex",
-          flexDirection: "column",
-          gap: "1rem",
-          padding: "0.75rem",
-          border: "1px solid #ddd",
-          borderRadius: 8,
-        }}
-      >
+      <div className={styles.transcript}>
         {state.transcript.map((ex, i) => (
           <ExchangeView key={i} question={ex.question} answer={ex.answer} sources={ex.sources} />
         ))}
@@ -231,33 +222,21 @@ export default function AskWidget() {
           />
         )}
         {state.status === "error" && (
-          <button
-            type="button"
-            onClick={() => void ask(state.question)}
-            style={{ alignSelf: "flex-start", minHeight: 44 }}
-          >
+          <button type="button" className={styles.retry} onClick={() => void ask(state.question)}>
             Try again
           </button>
         )}
         {isEmpty && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            <p style={{ color: "#666", margin: 0 }}>Ask a question to get started, or try one of these:</p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+          <div className={styles.empty}>
+            <p className={styles.emptyHint}>Ask a question to get started, or try one of these:</p>
+            <div className={styles.chips}>
               {SUGGESTED_QUESTIONS.map((q) => (
                 <button
                   key={q}
                   type="button"
+                  className={styles.chip}
                   onClick={() => void ask(q)}
                   disabled={busy}
-                  style={{
-                    minHeight: 44,
-                    padding: "0.4rem 0.85rem",
-                    border: "1px solid #ccc",
-                    borderRadius: 999,
-                    background: "#f6f6f6",
-                    cursor: busy ? "default" : "pointer",
-                    fontSize: "0.85rem",
-                  }}
                 >
                   {q}
                 </button>
@@ -267,36 +246,29 @@ export default function AskWidget() {
         )}
       </div>
 
-      <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+      <form className={styles.form} onSubmit={onSubmit}>
         <label htmlFor="ask-input" style={srOnly}>
           Ask a question about Marlowe
         </label>
         <textarea
           id="ask-input"
           ref={inputRef}
+          className={styles.input}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           onKeyDown={onKeyDown}
           rows={3}
           maxLength={MAX_CHARS}
           placeholder="What would you like to know?"
-          style={{ width: "100%", padding: "0.5rem", fontFamily: "inherit" }}
         />
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "0.5rem",
-          }}
-        >
-          <button type="submit" disabled={busy || !question.trim()} style={{ minHeight: 44 }}>
+        <div className={styles.controls}>
+          <button type="submit" className={styles.send} disabled={busy || !question.trim()}>
             {busy ? "Asking…" : "Ask"}
           </button>
           {question.length >= COUNTER_FROM && (
             <span
               aria-live="polite"
-              style={{ fontSize: "0.8rem", color: remaining <= 0 ? "#b00020" : "#666" }}
+              className={remaining <= 0 ? `${styles.counter} ${styles.counterOver}` : styles.counter}
             >
               {remaining} characters left
             </span>

@@ -261,6 +261,8 @@ Built on Decision 4's shape (one `error` state, discriminated `kind`, 429 caught
 - **State never by colour alone** — already satisfied (error/decline carry text); holding the line.
 - **Dark mode via the same CSS variables** — support `prefers-color-scheme` as default behaviour (cheap, since theming is already custom-property-based). Wiring into a *site-specific* theme toggle is deferred unless the site has one.
 
+> **Implemented — pixels now chosen (`M3.7-01`).** `web/components/AskWidget.module.css` + `SourceCards.module.css` (the widget moved off inline styles entirely). **Reset:** the *targeted* variant (not `all: revert`) — a typographic baseline (`font`/`color`/`line-height`/`text-align`) on the `.widget` root plus `box-sizing: border-box` on all descendants; every visible element carries a class with explicit colour/margin so a host's bare element selectors are out-specified (verified: dev DOM shows hashed `AskWidget_widget__…` classes, i.e. no outbound leak). **Palette** = `--rag-*` custom properties on `.widget` (bg/fg/muted/faint/border/border-strong/surface/accent/on-accent/error/focus), host-overridable; SourceCards reads the same vars by DOM inheritance. **AA:** muted `#5f5f5f` (~5.9:1) / faint `#6b6b6b` (~5.3:1) / accent `#1a5fb4` (~5.9:1) / error `#b00020` on white, with a `prefers-color-scheme: dark` block swapping every var to dark-mode values re-checked ≥4.5:1 (and a separate `--rag-on-accent` so button-label contrast holds in both schemes). **Reduced motion:** the only animation is a pulse on the pending "…" indicator, gated behind `@media (prefers-reduced-motion: no-preference)` (static otherwise). **Focus:** a `:focus-visible` ring using `--rag-focus` on all interactive descendants (incl. source links), backing up D8. State-by-text (not colour) was already in place. *Deferred per D9 unchanged: shadow DOM, site-specific theme toggle.*
+
 ---
 
 ### Decision 10 — Config & deployment
@@ -332,7 +334,7 @@ All design decisions are settled; remaining work is implementation.
 - [x] Input: Enter-to-send; client-side 500-char cap + counter; disabled on empty/whitespace; disabled while in flight — `AskWidget.tsx` (`M3.4-01`)
 - [x] Error handling: TTFB timeout (~10–15s); keep partial answer + interrupted note; manual "Try again"; `AbortController` teardown on unmount; widget-owned error copy — `AskWidget.tsx` (`M3.5-01`)
 - [~] Accessibility: hidden polite live region (present from first render); work the full checklist — code side done in `AskWidget.tsx` (`M3.6-01`); **live announce-on-complete test with VoiceOver + NVDA still owed (`M3.6-02`, MANUAL/Nic)**
-- [ ] Styling: CSS Modules + root reset; custom-property palette (overridable); AA contrast; `prefers-reduced-motion`; dark mode via `prefers-color-scheme`
+- [x] Styling: CSS Modules + root reset; custom-property palette (overridable); AA contrast; `prefers-reduced-motion`; dark mode via `prefers-color-scheme` — `AskWidget.module.css` + `SourceCards.module.css` (`M3.7-01`)
 - [ ] Config: `NEXT_PUBLIC_API_BASE_URL` (`.env.local` dev / Action build env prod)
 - [ ] **Cross-layer:** ensure Layer 2's CORS allowlist includes the dev origin (`localhost:3000`, Phase 2) and the prod site origin (Phase 3) — note added to `L2_Query_Pipeline.md`
 - [ ] Deploy via the existing GitHub Action → Azure (Phase 3); verify streaming end-to-end through Cloudflare (no `text/event-stream` buffering)

@@ -1,5 +1,5 @@
 /**
- * Source cards (M3.3-01, L3 Decision 5).
+ * Source cards (M3.3-01, L3 Decision 5; styled via CSS Modules at M3.7-01 / L3 D9).
  *
  * Rendered from the `sources` event. Grouped by page title (display-only), each a line-clamped
  * `…preview…` excerpt under an honest **provenance** label ("From Nic's portfolio:") — a provenance
@@ -10,20 +10,11 @@
  * decline shows no empty sources header).
  */
 
+import styles from "@/components/SourceCards.module.css";
 import { groupByTitle } from "@/lib/sources";
 import type { Source } from "@/lib/types";
 
 const PROVENANCE_LABEL = "From Nic's portfolio:";
-
-const previewStyle: React.CSSProperties = {
-  fontSize: "0.8rem",
-  color: "#555",
-  margin: 0,
-  display: "-webkit-box",
-  WebkitLineClamp: 2,
-  WebkitBoxOrient: "vertical",
-  overflow: "hidden",
-};
 
 export default function SourceCards({ sources }: { sources: Source[] }) {
   if (sources.length === 0) return null;
@@ -31,29 +22,19 @@ export default function SourceCards({ sources }: { sources: Source[] }) {
   const allNull = cards.every((c) => c.url === null);
 
   return (
-    <div style={{ marginTop: "0.75rem" }}>
-      <p style={{ fontSize: "0.8rem", color: "#666", margin: "0 0 0.4rem" }}>{PROVENANCE_LABEL}</p>
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+    <div className={styles.sources}>
+      <p className={styles.provenance}>{PROVENANCE_LABEL}</p>
+      <div className={styles.cardList}>
         {cards.map((c, i) => (
-          <article
-            key={`${c.title}-${i}`}
-            style={{ border: "1px solid #e3e3e3", borderRadius: 6, padding: "0.5rem 0.6rem" }}
-          >
-            <p style={{ fontWeight: 600, fontSize: "0.85rem", margin: "0 0 0.2rem" }}>{c.title}</p>
-            <p style={previewStyle}>…{c.text}</p>
+          <article key={`${c.title}-${i}`} className={styles.card}>
+            <p className={styles.cardTitle}>{c.title}</p>
+            <p className={styles.preview}>…{c.text}</p>
             {c.url ? (
-              <a
-                href={c.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ fontSize: "0.8rem" }}
-              >
+              <a className={styles.readMore} href={c.url} target="_blank" rel="noopener noreferrer">
                 read more →
               </a>
             ) : (
-              !allNull && (
-                <span style={{ fontSize: "0.75rem", color: "#999" }}>No linked page yet.</span>
-              )
+              !allNull && <span className={styles.noLink}>No linked page yet.</span>
             )}
           </article>
         ))}
