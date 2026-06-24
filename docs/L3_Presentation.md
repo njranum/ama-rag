@@ -171,6 +171,10 @@ Layer 3 has **no Phase-1 equivalent** — Layer 2's Phase 1 is a plain CLI with 
 
 **Deferred:** *true* multi-turn (conversation memory) — would be a Layer 2 contract change (session/history), explicitly out of scope.
 
+> **Implemented (`M3.4-01`).** Chips + input defaults built in `web/components/AskWidget.tsx`; the chip set lives in `web/lib/chips.ts`. Because the Phase-1 should-answer set is a Python module (`query/eval_set.py`) that can't cross the layer boundary into the TS widget, the chips are a **hand-picked, provenance-tagged copy**, not a runtime import. Selection method: every should-answer candidate was **exercised live against the local FastAPI + Chroma stack** and kept only if it returned a *strong* grounded answer. Two covered-but-weak candidates were **dropped** — *"Where does Marlowe currently work?"* (retrieval missed the Orrery chunk → hedged) and *"What open source work has Marlowe done?"* (cleared the gate but answered with a hedge) — confirming the ticket's own warning that "chips must come from genuinely-covered questions or they'll demo a decline." Kept four spanning project / skills / hiring-fit / origin-story. **PROVISIONAL** (synthetic corpus) — re-pick and re-validate from the regenerated should-answer set at `M4.2-03`.
+>
+> **Flagged (Layer 2, not actioned here):** during this live validation, answers intermittently named **"Nic"** instead of the synthetic persona **"Marlowe"** — the system prompt (`query/prompt.py`) hardcodes "Nic" while the seed corpus uses "Marlowe Finch", so the model mixes the two. Self-resolves at the `M4.2-03` content swap (corpus name becomes "Nic"), but worth a consistency pass if synthetic demos are shown before then.
+
 ---
 
 ### Decision 7 — Error & resilience (client side)
@@ -316,8 +320,8 @@ All design decisions are settled; remaining work is implementation.
 - [ ] Implement the hand-rolled `fetch` + SSE parser, honouring the four obligations (cross-chunk buffering, named-event association, streaming UTF-8 decode, comment-line skip)
 - [ ] Implement the `useReducer` state machine (`idle/submitting/streaming/done/error{kind}`; events `SUBMIT/SOURCES/DELTA/DONE/ERROR/RESET`)
 - [ ] Render: plain-text `pre-wrap` streaming answer; discrete-pairs bounded scrolling transcript; grouped source cards with preview + ellipsis under a **provenance label** (working choice "From Nic's portfolio:"); conditional "read more →"; suppress null-note when all-null
-- [ ] Suggested-question chips in the empty state, sourced from Layer 2's Phase-1 should-answer set
-- [ ] Input: Enter-to-send; client-side 500-char cap + counter; disabled on empty/whitespace; disabled while in flight
+- [x] Suggested-question chips in the empty state, sourced from Layer 2's Phase-1 should-answer set — `web/lib/chips.ts` + `AskWidget.tsx` (`M3.4-01`; live-validated, 2 weak candidates dropped)
+- [x] Input: Enter-to-send; client-side 500-char cap + counter; disabled on empty/whitespace; disabled while in flight — `AskWidget.tsx` (`M3.4-01`)
 - [ ] Error handling: TTFB timeout (~10–15s); keep partial answer + interrupted note; manual "Try again"; `AbortController` teardown on unmount; widget-owned error copy
 - [ ] Accessibility: hidden polite live region (present from first render); work the full checklist; **test announce-on-complete live with VoiceOver + NVDA**
 - [ ] Styling: CSS Modules + root reset; custom-property palette (overridable); AA contrast; `prefers-reduced-motion`; dark mode via `prefers-color-scheme`
