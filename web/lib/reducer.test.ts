@@ -58,3 +58,23 @@ it("SUBMIT after done starts fresh but keeps the transcript", () => {
   expect(s.status).toBe("submitting");
   expect(s.transcript).toHaveLength(1);
 });
+
+it("ERROR mid-stream keeps the partial answer + question (keep-partial; retry source) — M3.5", () => {
+  let s = reducer(initialState, { type: "SUBMIT", question: "q" });
+  s = reducer(s, { type: "SOURCES", sources: [SRC] });
+  s = reducer(s, { type: "DELTA", text: "partial " });
+  s = reducer(s, { type: "DELTA", text: "answer" });
+  s = reducer(s, { type: "ERROR", kind: "stream" });
+  expect(s.status).toBe("error");
+  expect(s.answer).toBe("partial answer"); // tokens shown are real — never discarded
+  expect(s.question).toBe("q"); // retained so "Try again" can re-send it
+  expect(s.sources).toEqual([SRC]);
+});
+
+it("SUBMIT is allowed from error — the manual retry path (L3 D7) — M3.5", () => {
+  const errored: State = { ...initialState, status: "error", error: "network", question: "q" };
+  const s = reducer(errored, { type: "SUBMIT", question: "q" });
+  expect(s.status).toBe("submitting");
+  expect(s.error).toBeNull(); // a fresh attempt clears the prior error
+  expect(s.answer).toBe("");
+});

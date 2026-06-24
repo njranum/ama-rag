@@ -193,6 +193,8 @@ Built on Decision 4's shape (one `error` state, discriminated `kind`, 429 caught
 
 **Cross-layer check — came back clean (no Layer 2 change):** considered whether consuming the contract wanted a machine-readable error *code* on the `error` event. It doesn't — the widget only needs to know *that* a stream errored, not *why* (`stream` is one bucket with one generic message), and the `429` is already distinguishable as a pre-stream HTTP status. Layer 2's existing friendly-string `error` event is sufficient as-is. (Flagged explicitly per the working method: "I checked whether this reaches back, and it doesn't.")
 
+> **Implemented (`M3.5-01`).** All five decisions built in `web/components/AskWidget.tsx`. Concrete choices: **TTFB = 12s** (mid-range of the 10–15s band), armed *around the whole pre-first-event window* (a `setTimeout` set before `fetch`, so it also catches a server that hangs on response headers, not just one that opens then stalls) and cleared on the first SSE event. **Abort-reason sentinels** (`"ttfb-timeout"` vs `"unmount"`) passed to `AbortController.abort(reason)` are how the `catch` tells the two aborts apart — a timeout becomes a `network` error, an unmount stays silent (abort ≠ error). **Keep-partial** is split: the reducer already retains `answer` on `ERROR`, and `ExchangeView` shows the partial text + a muted "— the response was interrupted" note *only when tokens already rendered*, else the error copy. **Manual retry** re-sends `state.question` (retained through `ERROR`; `SUBMIT` is allowed from the settled `error` state). The two invariants this leans on — `ERROR` keeps `answer`/`question`, and `SUBMIT`-from-`error` starts fresh — are now pinned by unit tests in `lib/reducer.test.ts`. `stream` and `network` share one generic message per the copy drafts above.
+
 ---
 
 ### Decision 8 — Accessibility & responsive
@@ -322,7 +324,7 @@ All design decisions are settled; remaining work is implementation.
 - [ ] Render: plain-text `pre-wrap` streaming answer; discrete-pairs bounded scrolling transcript; grouped source cards with preview + ellipsis under a **provenance label** (working choice "From Nic's portfolio:"); conditional "read more →"; suppress null-note when all-null
 - [x] Suggested-question chips in the empty state, sourced from Layer 2's Phase-1 should-answer set — `web/lib/chips.ts` + `AskWidget.tsx` (`M3.4-01`; live-validated, 2 weak candidates dropped)
 - [x] Input: Enter-to-send; client-side 500-char cap + counter; disabled on empty/whitespace; disabled while in flight — `AskWidget.tsx` (`M3.4-01`)
-- [ ] Error handling: TTFB timeout (~10–15s); keep partial answer + interrupted note; manual "Try again"; `AbortController` teardown on unmount; widget-owned error copy
+- [x] Error handling: TTFB timeout (~10–15s); keep partial answer + interrupted note; manual "Try again"; `AbortController` teardown on unmount; widget-owned error copy — `AskWidget.tsx` (`M3.5-01`)
 - [ ] Accessibility: hidden polite live region (present from first render); work the full checklist; **test announce-on-complete live with VoiceOver + NVDA**
 - [ ] Styling: CSS Modules + root reset; custom-property palette (overridable); AA contrast; `prefers-reduced-motion`; dark mode via `prefers-color-scheme`
 - [ ] Config: `NEXT_PUBLIC_API_BASE_URL` (`.env.local` dev / Action build env prod)
