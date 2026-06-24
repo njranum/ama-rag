@@ -8,12 +8,15 @@
  * plain text with `white-space: pre-wrap` and completed Q→A→Sources pairs accumulate in a bounded,
  * internally-scrolling transcript (M3.2-02 / L3 D4+D6). Source cards (M3.3); empty-state chips +
  * input defaults (M3.4 / L3 D6); client error & resilience — TTFB timeout, keep-partial, manual
- * retry, abort-on-unmount (M3.5 / L3 D7). Later slices: accessibility (M3.6), CSS-Modules (M3.7).
+ * retry, abort-on-unmount (M3.5 / L3 D7); a11y — hidden polite live region announcing the settled
+ * answer/decline/error once, label, focus-stays-on-input, structural prefixes (M3.6 / L3 D8).
+ * Later slice: CSS-Modules styling, contrast, reduced-motion (M3.7).
  */
 
 import { type FormEvent, type KeyboardEvent, useEffect, useReducer, useRef, useState } from "react";
 
 import SourceCards from "@/components/SourceCards";
+import { announcementText } from "@/lib/announce";
 import { SUGGESTED_QUESTIONS } from "@/lib/chips";
 import { type ErrorKind, initialState, reducer } from "@/lib/reducer";
 import { parseSseStream } from "@/lib/sse";
@@ -41,6 +44,20 @@ const ERROR_COPY: Record<ErrorKind, string> = {
   network: "Something went wrong fetching that answer.",
 };
 
+// Visually-hidden but available to assistive tech (the standard sr-only recipe) — used for the
+// input label, the structural "You asked:"/"Answer:" prefixes, and the live announcement region.
+const srOnly: React.CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden",
+  clip: "rect(0, 0, 0, 0)",
+  whiteSpace: "nowrap",
+  border: 0,
+};
+
 function ExchangeView({
   question,
   answer,
@@ -58,15 +75,21 @@ function ExchangeView({
   // grounded text and append a muted interruption note — discarding it reads as more broken than
   // the interruption. Only when nothing streamed yet do we replace with the error copy.
   const interrupted = error !== null && answer.length > 0;
+  // Each pair is structurally distinct for browse-mode navigation (L3 D8). The visible elements are
+  // NOT live regions — announcement is the hidden region's job, so a screen reader hears the answer
+  // once on completion rather than token-by-token. Error copy is a plain styled <p> (not role=alert,
+  // which is assertive) — the polite region carries it to AT instead.
   return (
     <div>
-      <p style={{ fontWeight: 600, margin: "0 0 0.25rem" }}>{question}</p>
+      <p style={{ fontWeight: 600, margin: "0 0 0.25rem" }}>
+        <span style={srOnly}>You asked: </span>
+        {question}
+      </p>
       {error !== null && answer.length === 0 ? (
-        <p role="alert" style={{ color: "#b00020", margin: 0 }}>
-          {ERROR_COPY[error]}
-        </p>
+        <p style={{ color: "#b00020", margin: 0 }}>{ERROR_COPY[error]}</p>
       ) : (
         <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+          <span style={srOnly}>Answer: </span>
           {answer || (pending ? "…" : "")}
           {interrupted && <span style={{ color: "#888" }}> — the response was interrupted</span>}
         </p>
@@ -80,6 +103,7 @@ export default function AskWidget() {
   const [question, setQuestion] = useState("");
   const [state, dispatch] = useReducer(reducer, initialState);
   const abortRef = useRef<AbortController | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const busy = state.status === "submitting" || state.status === "streaming";
 
@@ -89,6 +113,10 @@ export default function AskWidget() {
     if (!q || busy) return;
     setQuestion("");
     dispatch({ type: "SUBMIT", question: q });
+    // Keep focus on the input after submit (L3 D8) — chips/Try-again unmount on send, which would
+    // otherwise drop focus to <body> and scroll the page to the top (the classic chatbot bug). The
+    // textarea is always mounted, so this is safe even from a chip click.
+    inputRef.current?.focus();
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -166,8 +194,18 @@ export default function AskWidget() {
   const isEmpty = state.transcript.length === 0 && !showLive;
   const remaining = MAX_CHARS - question.length;
 
+  // Announce the SETTLED result once (L3 D8) — empty during submitting/streaming, so the polite
+  // region fires exactly once at settle, never per token. See lib/announce.ts.
+  const announcement = announcementText(state, ERROR_COPY);
+
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+      {/* Present and empty from first render (L3 D8) — a dynamically-injected live region needs a
+          delay before AT picks it up. polite + atomic so the whole settled answer is one coherent
+          announcement, never the assertive interrupt. */}
+      <div aria-live="polite" aria-atomic="true" style={srOnly}>
+        {announcement}
+      </div>
       <div
         style={{
           maxHeight: 360,
@@ -196,7 +234,7 @@ export default function AskWidget() {
           <button
             type="button"
             onClick={() => void ask(state.question)}
-            style={{ alignSelf: "flex-start" }}
+            style={{ alignSelf: "flex-start", minHeight: 44 }}
           >
             Try again
           </button>
@@ -212,7 +250,8 @@ export default function AskWidget() {
                   onClick={() => void ask(q)}
                   disabled={busy}
                   style={{
-                    padding: "0.35rem 0.7rem",
+                    minHeight: 44,
+                    padding: "0.4rem 0.85rem",
                     border: "1px solid #ccc",
                     borderRadius: 999,
                     background: "#f6f6f6",
@@ -229,7 +268,12 @@ export default function AskWidget() {
       </div>
 
       <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <label htmlFor="ask-input" style={srOnly}>
+          Ask a question about Marlowe
+        </label>
         <textarea
+          id="ask-input"
+          ref={inputRef}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           onKeyDown={onKeyDown}
@@ -246,7 +290,7 @@ export default function AskWidget() {
             gap: "0.5rem",
           }}
         >
-          <button type="submit" disabled={busy || !question.trim()}>
+          <button type="submit" disabled={busy || !question.trim()} style={{ minHeight: 44 }}>
             {busy ? "Asking…" : "Ask"}
           </button>
           {question.length >= COUNTER_FROM && (

@@ -232,6 +232,12 @@ Built on Decision 4's shape (one `error` state, discriminated `kind`, 429 caught
 
 **Deferred:** sentence-chunk announcing during the stream (richer real-time feel, cross-AT risk) — revisit only if the on-complete wait feels dead in testing; a single "Answering…" status cue is the cheaper fix if so.
 
+> **Implemented — code side (`M3.6-01`).** In `web/components/AskWidget.tsx`: a visually-hidden `aria-live="polite" aria-atomic="true"` region rendered **from first render** (empty until settle); its text is derived to change **only** at `done` (the just-committed answer — a decline is a normal answer, so it's covered) or `error` (partial + interrupted note, else the error copy), so it announces once, never per token. The visible streaming `<p>` is **not** a live region, and the former `role="alert"` on the error line was removed (assertive) in favour of that polite region. Checklist done by inspection: hidden `<label htmlFor>` on the textarea; focus **kept on the input** after every submit (chips/Try-again unmount on send, which would otherwise drop focus to `<body>` and scroll to top); hidden "You asked:" / "Answer:" prefixes per pair; real `<button>`/`<a>` semantics + `disabled` attribute already in place; `~44px` min tap targets on send/Try-again/chips (fine visual sizing lands at `M3.7`); no `outline:none` in `app/globals.css`, so focus rings survive.
+>
+> **Divergence from the checklist's stated tab order (intentional, WCAG-driven).** The checklist lists "input → send → chips → source links", but this widget is **input-at-the-bottom** (chat-style): the empty-state chips and the transcript's source links render **visually above** the input. Per WCAG 2.4.3 (focus order must follow visual order), the implemented DOM/tab order is therefore **chips / source-links → input → send**, top-to-bottom — *not* input-first. Reordering the DOM to match the literal checklist would break focus-follows-visual-order, so the layout's natural order is kept. The checklist line above assumed an input-on-top layout; this note supersedes that ordering for the shipped design.
+>
+> **Still owed:** the live VoiceOver/NVDA pass (`M3.6-02`, MANUAL) — announce-on-complete genuinely can't be confirmed from code.
+
 *(Contrast and `prefers-reduced-motion` are visual concerns — settled in Decision 9.)*
 
 ---
@@ -325,7 +331,7 @@ All design decisions are settled; remaining work is implementation.
 - [x] Suggested-question chips in the empty state, sourced from Layer 2's Phase-1 should-answer set — `web/lib/chips.ts` + `AskWidget.tsx` (`M3.4-01`; live-validated, 2 weak candidates dropped)
 - [x] Input: Enter-to-send; client-side 500-char cap + counter; disabled on empty/whitespace; disabled while in flight — `AskWidget.tsx` (`M3.4-01`)
 - [x] Error handling: TTFB timeout (~10–15s); keep partial answer + interrupted note; manual "Try again"; `AbortController` teardown on unmount; widget-owned error copy — `AskWidget.tsx` (`M3.5-01`)
-- [ ] Accessibility: hidden polite live region (present from first render); work the full checklist; **test announce-on-complete live with VoiceOver + NVDA**
+- [~] Accessibility: hidden polite live region (present from first render); work the full checklist — code side done in `AskWidget.tsx` (`M3.6-01`); **live announce-on-complete test with VoiceOver + NVDA still owed (`M3.6-02`, MANUAL/Nic)**
 - [ ] Styling: CSS Modules + root reset; custom-property palette (overridable); AA contrast; `prefers-reduced-motion`; dark mode via `prefers-color-scheme`
 - [ ] Config: `NEXT_PUBLIC_API_BASE_URL` (`.env.local` dev / Action build env prod)
 - [ ] **Cross-layer:** ensure Layer 2's CORS allowlist includes the dev origin (`localhost:3000`, Phase 2) and the prod site origin (Phase 3) — note added to `L2_Query_Pipeline.md`
