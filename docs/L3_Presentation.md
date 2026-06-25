@@ -171,6 +171,10 @@ Layer 3 has **no Phase-1 equivalent** — Layer 2's Phase 1 is a plain CLI with 
 
 **Deferred:** *true* multi-turn (conversation memory) — would be a Layer 2 contract change (session/history), explicitly out of scope.
 
+> **Implemented (`M3.4-01`).** Chips + input defaults built in `web/components/AskWidget.tsx`; the chip set lives in `web/lib/chips.ts`. Because the Phase-1 should-answer set is a Python module (`query/eval_set.py`) that can't cross the layer boundary into the TS widget, the chips are a **hand-picked, provenance-tagged copy**, not a runtime import. Selection method: every should-answer candidate was **exercised live against the local FastAPI + Chroma stack** and kept only if it returned a *strong* grounded answer. Two covered-but-weak candidates were **dropped** — *"Where does Marlowe currently work?"* (retrieval missed the Orrery chunk → hedged) and *"What open source work has Marlowe done?"* (cleared the gate but answered with a hedge) — confirming the ticket's own warning that "chips must come from genuinely-covered questions or they'll demo a decline." Kept four spanning project / skills / hiring-fit / origin-story. **PROVISIONAL** (synthetic corpus) — re-pick and re-validate from the regenerated should-answer set at `M4.2-03`.
+>
+> **Flagged (Layer 2, not actioned here):** during this live validation, answers intermittently named **"Nic"** instead of the synthetic persona **"Marlowe"** — the system prompt (`query/prompt.py`) hardcodes "Nic" while the seed corpus uses "Marlowe Finch", so the model mixes the two. Self-resolves at the `M4.2-03` content swap (corpus name becomes "Nic"), but worth a consistency pass if synthetic demos are shown before then.
+
 ---
 
 ### Decision 7 — Error & resilience (client side)
@@ -188,6 +192,8 @@ Built on Decision 4's shape (one `error` state, discriminated `kind`, 429 caught
 **Deferred:** explicit user-facing **"stop" button** during streaming — the `AbortController` goes in now (for unmount), so the button is nearly free to add later.
 
 **Cross-layer check — came back clean (no Layer 2 change):** considered whether consuming the contract wanted a machine-readable error *code* on the `error` event. It doesn't — the widget only needs to know *that* a stream errored, not *why* (`stream` is one bucket with one generic message), and the `429` is already distinguishable as a pre-stream HTTP status. Layer 2's existing friendly-string `error` event is sufficient as-is. (Flagged explicitly per the working method: "I checked whether this reaches back, and it doesn't.")
+
+> **Implemented (`M3.5-01`).** All five decisions built in `web/components/AskWidget.tsx`. Concrete choices: **TTFB = 12s** (mid-range of the 10–15s band), armed *around the whole pre-first-event window* (a `setTimeout` set before `fetch`, so it also catches a server that hangs on response headers, not just one that opens then stalls) and cleared on the first SSE event. **Abort-reason sentinels** (`"ttfb-timeout"` vs `"unmount"`) passed to `AbortController.abort(reason)` are how the `catch` tells the two aborts apart — a timeout becomes a `network` error, an unmount stays silent (abort ≠ error). **Keep-partial** is split: the reducer already retains `answer` on `ERROR`, and `ExchangeView` shows the partial text + a muted "— the response was interrupted" note *only when tokens already rendered*, else the error copy. **Manual retry** re-sends `state.question` (retained through `ERROR`; `SUBMIT` is allowed from the settled `error` state). The two invariants this leans on — `ERROR` keeps `answer`/`question`, and `SUBMIT`-from-`error` starts fresh — are now pinned by unit tests in `lib/reducer.test.ts`. `stream` and `network` share one generic message per the copy drafts above.
 
 ---
 
@@ -226,6 +232,12 @@ Built on Decision 4's shape (one `error` state, discriminated `kind`, 429 caught
 
 **Deferred:** sentence-chunk announcing during the stream (richer real-time feel, cross-AT risk) — revisit only if the on-complete wait feels dead in testing; a single "Answering…" status cue is the cheaper fix if so.
 
+> **Implemented — code side (`M3.6-01`).** In `web/components/AskWidget.tsx`: a visually-hidden `aria-live="polite" aria-atomic="true"` region rendered **from first render** (empty until settle); its text is derived to change **only** at `done` (the just-committed answer — a decline is a normal answer, so it's covered) or `error` (partial + interrupted note, else the error copy), so it announces once, never per token. The visible streaming `<p>` is **not** a live region, and the former `role="alert"` on the error line was removed (assertive) in favour of that polite region. Checklist done by inspection: hidden `<label htmlFor>` on the textarea; focus **kept on the input** after every submit (chips/Try-again unmount on send, which would otherwise drop focus to `<body>` and scroll to top); hidden "You asked:" / "Answer:" prefixes per pair; real `<button>`/`<a>` semantics + `disabled` attribute already in place; `~44px` min tap targets on send/Try-again/chips (fine visual sizing lands at `M3.7`); no `outline:none` in `app/globals.css`, so focus rings survive.
+>
+> **Divergence from the checklist's stated tab order (intentional, WCAG-driven).** The checklist lists "input → send → chips → source links", but this widget is **input-at-the-bottom** (chat-style): the empty-state chips and the transcript's source links render **visually above** the input. Per WCAG 2.4.3 (focus order must follow visual order), the implemented DOM/tab order is therefore **chips / source-links → input → send**, top-to-bottom — *not* input-first. Reordering the DOM to match the literal checklist would break focus-follows-visual-order, so the layout's natural order is kept. The checklist line above assumed an input-on-top layout; this note supersedes that ordering for the shipped design.
+>
+> **Still owed:** the live VoiceOver/NVDA pass (`M3.6-02`, MANUAL) — announce-on-complete genuinely can't be confirmed from code.
+
 *(Contrast and `prefers-reduced-motion` are visual concerns — settled in Decision 9.)*
 
 ---
@@ -248,6 +260,8 @@ Built on Decision 4's shape (one `error` state, discriminated `kind`, 429 caught
 - **`prefers-reduced-motion` honoured** — typing-cursor blink and any fade/slide gated behind it (reduce to instant).
 - **State never by colour alone** — already satisfied (error/decline carry text); holding the line.
 - **Dark mode via the same CSS variables** — support `prefers-color-scheme` as default behaviour (cheap, since theming is already custom-property-based). Wiring into a *site-specific* theme toggle is deferred unless the site has one.
+
+> **Implemented — pixels now chosen (`M3.7-01`).** `web/components/AskWidget.module.css` + `SourceCards.module.css` (the widget moved off inline styles entirely). **Reset:** the *targeted* variant (not `all: revert`) — a typographic baseline (`font`/`color`/`line-height`/`text-align`) on the `.widget` root plus `box-sizing: border-box` on all descendants; every visible element carries a class with explicit colour/margin so a host's bare element selectors are out-specified (verified: dev DOM shows hashed `AskWidget_widget__…` classes, i.e. no outbound leak). **Palette** = `--rag-*` custom properties on `.widget` (bg/fg/muted/faint/border/border-strong/surface/accent/on-accent/error/focus), host-overridable; SourceCards reads the same vars by DOM inheritance. **AA:** muted `#5f5f5f` (~5.9:1) / faint `#6b6b6b` (~5.3:1) / accent `#1a5fb4` (~5.9:1) / error `#b00020` on white, with a `prefers-color-scheme: dark` block swapping every var to dark-mode values re-checked ≥4.5:1 (and a separate `--rag-on-accent` so button-label contrast holds in both schemes). **Reduced motion:** the only animation is a pulse on the pending "…" indicator, gated behind `@media (prefers-reduced-motion: no-preference)` (static otherwise). **Focus:** a `:focus-visible` ring using `--rag-focus` on all interactive descendants (incl. source links), backing up D8. State-by-text (not colour) was already in place. *Deferred per D9 unchanged: shadow DOM, site-specific theme toggle.*
 
 ---
 
@@ -316,11 +330,11 @@ All design decisions are settled; remaining work is implementation.
 - [ ] Implement the hand-rolled `fetch` + SSE parser, honouring the four obligations (cross-chunk buffering, named-event association, streaming UTF-8 decode, comment-line skip)
 - [ ] Implement the `useReducer` state machine (`idle/submitting/streaming/done/error{kind}`; events `SUBMIT/SOURCES/DELTA/DONE/ERROR/RESET`)
 - [ ] Render: plain-text `pre-wrap` streaming answer; discrete-pairs bounded scrolling transcript; grouped source cards with preview + ellipsis under a **provenance label** (working choice "From Nic's portfolio:"); conditional "read more →"; suppress null-note when all-null
-- [ ] Suggested-question chips in the empty state, sourced from Layer 2's Phase-1 should-answer set
-- [ ] Input: Enter-to-send; client-side 500-char cap + counter; disabled on empty/whitespace; disabled while in flight
-- [ ] Error handling: TTFB timeout (~10–15s); keep partial answer + interrupted note; manual "Try again"; `AbortController` teardown on unmount; widget-owned error copy
-- [ ] Accessibility: hidden polite live region (present from first render); work the full checklist; **test announce-on-complete live with VoiceOver + NVDA**
-- [ ] Styling: CSS Modules + root reset; custom-property palette (overridable); AA contrast; `prefers-reduced-motion`; dark mode via `prefers-color-scheme`
+- [x] Suggested-question chips in the empty state, sourced from Layer 2's Phase-1 should-answer set — `web/lib/chips.ts` + `AskWidget.tsx` (`M3.4-01`; live-validated, 2 weak candidates dropped)
+- [x] Input: Enter-to-send; client-side 500-char cap + counter; disabled on empty/whitespace; disabled while in flight — `AskWidget.tsx` (`M3.4-01`)
+- [x] Error handling: TTFB timeout (~10–15s); keep partial answer + interrupted note; manual "Try again"; `AbortController` teardown on unmount; widget-owned error copy — `AskWidget.tsx` (`M3.5-01`)
+- [~] Accessibility: hidden polite live region (present from first render); work the full checklist — code side done in `AskWidget.tsx` (`M3.6-01`); **live announce-on-complete test with VoiceOver + NVDA still owed (`M3.6-02`, MANUAL/Nic)**
+- [x] Styling: CSS Modules + root reset; custom-property palette (overridable); AA contrast; `prefers-reduced-motion`; dark mode via `prefers-color-scheme` — `AskWidget.module.css` + `SourceCards.module.css` (`M3.7-01`)
 - [ ] Config: `NEXT_PUBLIC_API_BASE_URL` (`.env.local` dev / Action build env prod)
 - [ ] **Cross-layer:** ensure Layer 2's CORS allowlist includes the dev origin (`localhost:3000`, Phase 2) and the prod site origin (Phase 3) — note added to `L2_Query_Pipeline.md`
 - [ ] Deploy via the existing GitHub Action → Azure (Phase 3); verify streaming end-to-end through Cloudflare (no `text/event-stream` buffering)

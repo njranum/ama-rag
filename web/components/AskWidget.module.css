@@ -1,0 +1,220 @@
+/*
+ * Widget styling & theming (M3.7-01, L3 Decision 9).
+ *
+ * Isolation = CSS Modules (scoped class names stop the widget leaking OUT) + an explicit reset on
+ * the widget root that out-specifies the host's inherited globals leaking IN. Every visible element
+ * carries a class with explicit color/margin/font, so a host's bare element selectors (`p {…}`,
+ * `button {…}`) are out-specified by class specificity (the core D9 mechanism; shadow DOM deferred).
+ *
+ * Theming = the widget OWNS its palette via custom properties on the root — host-overridable (set
+ * the `--rag-*` vars from outside) but not host-dependent. Dark mode rides the same vars via
+ * `prefers-color-scheme`. Contrast meets WCAG AA (4.5:1 body) in both schemes; motion is gated
+ * behind `prefers-reduced-motion`; state is never colour-only (error/decline carry text).
+ */
+
+.widget {
+  /* Root reset: a known typographic baseline so host globals don't bleed in (targeted, per D9). */
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-align: left;
+  color: var(--rag-fg);
+
+  /* Palette — light defaults (all foreground/bg pairs >= 4.5:1). Override these vars to re-skin. */
+  --rag-bg: #ffffff;
+  --rag-fg: #1a1a1a;
+  --rag-muted: #5f5f5f; /* ~5.9:1 on white — secondary text */
+  --rag-faint: #6b6b6b; /* ~5.3:1 on white — least-important text */
+  --rag-border: #d4d4d4;
+  --rag-border-strong: #b0b0b0;
+  --rag-surface: #f3f3f3;
+  --rag-accent: #1a5fb4; /* ~5.9:1 on white — links + primary button bg */
+  --rag-on-accent: #ffffff;
+  --rag-error: #b00020; /* ~6.4:1 on white */
+  --rag-focus: #1a5fb4;
+
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.widget *,
+.widget *::before,
+.widget *::after {
+  box-sizing: border-box;
+}
+
+@media (prefers-color-scheme: dark) {
+  .widget {
+    --rag-bg: #1e1e1e;
+    --rag-fg: #ededed;
+    --rag-muted: #b3b3b3; /* ~7.3:1 on #1e1e1e */
+    --rag-faint: #9a9a9a; /* ~5.3:1 on #1e1e1e */
+    --rag-border: #3a3a3a;
+    --rag-border-strong: #565656;
+    --rag-surface: #2a2a2a;
+    --rag-accent: #6ab0ff; /* ~6.9:1 on #1e1e1e */
+    --rag-on-accent: #0d1b2a; /* dark text on the light-blue accent in dark mode */
+    --rag-error: #ff6b6b; /* ~6.0:1 on #1e1e1e */
+    --rag-focus: #6ab0ff;
+  }
+}
+
+/* Consistent, host-proof focus ring on every interactive element (D8 carry-over). */
+.widget button:focus-visible,
+.widget a:focus-visible,
+.widget textarea:focus-visible {
+  outline: 2px solid var(--rag-focus);
+  outline-offset: 2px;
+}
+
+.transcript {
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--rag-border);
+  border-radius: 8px;
+  background: var(--rag-bg);
+}
+
+.exchange {
+  display: flex;
+  flex-direction: column;
+}
+
+.question {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+  color: var(--rag-fg);
+}
+
+.answer {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--rag-fg);
+}
+
+.errorText {
+  margin: 0;
+  color: var(--rag-error);
+}
+
+.interrupted {
+  color: var(--rag-faint);
+}
+
+/* Pending typing indicator — pulse only when the user hasn't asked for reduced motion (D9). */
+.pending {
+  opacity: 0.6;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pending {
+    animation: ragPulse 1.2s ease-in-out infinite;
+  }
+}
+@keyframes ragPulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.emptyHint {
+  margin: 0;
+  color: var(--rag-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chip {
+  min-height: 44px;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--rag-border-strong);
+  border-radius: 999px;
+  background: var(--rag-surface);
+  color: var(--rag-fg);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.retry {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--rag-border-strong);
+  border-radius: 6px;
+  background: var(--rag-surface);
+  color: var(--rag-fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.input {
+  width: 100%;
+  padding: 0.5rem;
+  font: inherit;
+  color: var(--rag-fg);
+  background: var(--rag-bg);
+  border: 1px solid var(--rag-border-strong);
+  border-radius: 6px;
+  resize: vertical;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.send {
+  min-height: 44px;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--rag-accent);
+  border-radius: 6px;
+  background: var(--rag-accent);
+  color: var(--rag-on-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.chip:disabled,
+.send:disabled,
+.retry:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.counter {
+  font-size: 0.8rem;
+  color: var(--rag-muted);
+}
+
+.counterOver {
+  color: var(--rag-error);
+}

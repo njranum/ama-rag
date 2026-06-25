@@ -1,0 +1,55 @@
+/*
+ * Source-card styling (M3.7-01, L3 D9). Scoped classes; colours come from the `--rag-*` custom
+ * properties the widget root defines (these nodes render inside `.widget`, so the vars inherit).
+ * Explicit per-element colour/margin out-specifies host element-selector bleed.
+ */
+
+.sources {
+  margin-top: 0.75rem;
+}
+
+.provenance {
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem;
+  color: var(--rag-muted);
+}
+
+.cardList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.card {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--rag-border);
+  border-radius: 6px;
+  background: var(--rag-bg);
+}
+
+.cardTitle {
+  margin: 0 0 0.2rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--rag-fg);
+}
+
+.preview {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--rag-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.readMore {
+  font-size: 0.8rem;
+  color: var(--rag-accent);
+}
+
+.noLink {
+  font-size: 0.75rem;
+  color: var(--rag-faint);
+}
