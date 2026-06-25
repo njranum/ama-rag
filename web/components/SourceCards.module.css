@@ -1,42 +1,105 @@
 /*
- * Source-card styling (M3.7-01, L3 D9). Scoped classes; colours come from the `--rag-*` custom
- * properties the widget root defines (these nodes render inside `.widget`, so the vars inherit).
- * Explicit per-element colour/margin out-specifies host element-selector bleed.
+ * Source-card styling — archive aesthetic (M3.7-01, L3 D9; surface refresh from M3.3-01). Scoped
+ * classes; colours and fonts come from the `--rag-*` custom properties the widget root defines
+ * (these nodes render inside `.widget`, so the vars inherit). Explicit per-element colour/font
+ * out-specifies host element-selector bleed. No accent colour — ink + paper + rules only.
  */
 
 .sources {
-  margin-top: 0.75rem;
+  margin-top: 0.85rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--rag-rule-hair); /* hairline inside the pair: answer -> sources */
 }
 
+/* Summary line — the whole collapsed/expandable control. A real <button>, laid out as the inverted
+   provenance tag + count + chevron in one row. Focus ring comes from the widget-root rule. */
+.summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--rag-font-mono);
+  cursor: pointer;
+}
+
+/* Inverted label block — provenance assertion ("From Nic's portfolio"), NOT a causation claim.
+   Real sentence-case text uppercased in CSS so a screen reader doesn't spell out the caps. */
 .provenance {
-  margin: 0 0 0.4rem;
-  font-size: 0.8rem;
+  margin: 0;
+  display: inline-block;
+  padding: 0.12rem 0.45rem;
+  background: var(--rag-ink);
+  color: var(--rag-paper);
+  font-family: var(--rag-font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.count {
+  font-size: 0.72rem;
   color: var(--rag-muted);
+}
+
+.chevron {
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--rag-muted);
+}
+
+.summary:hover .count,
+.summary:hover .chevron {
+  color: var(--rag-ink);
 }
 
 .cardList {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+.cardList[hidden] {
+  display: none; /* out-specifies the flex display so the collapsed panel truly hides */
 }
 
 .card {
-  padding: 0.5rem 0.6rem;
-  border: 1px solid var(--rag-border);
-  border-radius: 6px;
-  background: var(--rag-bg);
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--rag-ink);
+  border-radius: 0;
+  background: var(--rag-paper);
+}
+
+.cardHead {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.cardIndex {
+  flex: none;
+  font-family: var(--rag-font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--rag-muted);
 }
 
 .cardTitle {
-  margin: 0 0 0.2rem;
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--rag-fg);
+  margin: 0;
+  font-family: var(--rag-font-mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--rag-ink);
 }
 
 .preview {
   margin: 0;
-  font-size: 0.8rem;
+  font-family: var(--rag-font-mono);
+  font-size: 0.78rem;
+  line-height: 1.45;
   color: var(--rag-muted);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -45,11 +108,20 @@
 }
 
 .readMore {
-  font-size: 0.8rem;
-  color: var(--rag-accent);
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-family: var(--rag-font-mono);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--rag-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .noLink {
-  font-size: 0.75rem;
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-family: var(--rag-font-mono);
+  font-size: 0.72rem;
   color: var(--rag-faint);
 }

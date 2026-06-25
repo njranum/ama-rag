@@ -11,7 +11,9 @@
  * retry, abort-on-unmount (M3.5 / L3 D7); a11y — hidden polite live region announcing the settled
  * answer/decline/error once, label, focus-stays-on-input, structural prefixes (M3.6 / L3 D8);
  * styling & theming — CSS Modules + root reset, owned custom-property palette, AA contrast,
- * reduced-motion, dark mode (M3.7 / L3 D9).
+ * reduced-motion, dark mode, archive/changelog aesthetic (ink-on-paper, square, mono UI + serif
+ * answer body) (M3.7 / L3 D9). The restyle is purely visual — this component's state machine,
+ * SSE consumption, fetch/abort policy, and a11y contract are unchanged.
  */
 
 import { type FormEvent, type KeyboardEvent, useEffect, useReducer, useRef, useState } from "react";
@@ -66,12 +68,18 @@ function ExchangeView({
   sources,
   pending = false,
   error = null,
+  answerRef,
+  onAnswerScroll,
 }: {
   question: string;
   answer: string;
   sources: Source[];
   pending?: boolean;
   error?: ErrorKind | null;
+  // Only the live (streaming) exchange passes these — the answer block is the scroll container the
+  // sticky auto-scroll follows. Completed transcript pairs leave them undefined.
+  answerRef?: React.Ref<HTMLParagraphElement>;
+  onAnswerScroll?: () => void;
 }) {
   // Keep-partial (L3 D7): if tokens already rendered and then an error arrives, keep the real,
   // grounded text and append a muted interruption note — discarding it reads as more broken than
@@ -85,14 +93,20 @@ function ExchangeView({
     <div className={styles.exchange}>
       <p className={styles.question}>
         <span style={srOnly}>You asked: </span>
+        {/* Inverted mono tag — decorative (the srOnly "You asked:" carries the meaning to AT, so the
+            visible tag is aria-hidden to avoid a duplicate announcement). Sentence-case text with
+            CSS uppercase so a screen reader never spells out the caps. */}
+        <span className={styles.askedTag} aria-hidden="true">
+          Asked
+        </span>
         {question}
       </p>
       {error !== null && answer.length === 0 ? (
         <p className={styles.errorText}>{ERROR_COPY[error]}</p>
       ) : (
-        <p className={styles.answer}>
+        <p className={styles.answer} ref={answerRef} onScroll={onAnswerScroll}>
           <span style={srOnly}>Answer: </span>
-          {answer || (pending ? <span className={styles.pending}>…</span> : "")}
+          {answer || (pending ? <span className={styles.pending}>▋</span> : "")}
           {interrupted && <span className={styles.interrupted}> — the response was interrupted</span>}
         </p>
       )}
@@ -106,6 +120,11 @@ export default function AskWidget() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // The live answer block is the scroll container the auto-follow targets (the height cap lives on
+  // the answer, not the whole transcript — L3 D2). Sticky-bottom flag: true while the user is parked
+  // at the bottom, flipped false the moment they scroll up so streamed tokens never yank them down.
+  const answerRef = useRef<HTMLParagraphElement>(null);
+  const stickToBottomRef = useRef(true);
 
   const busy = state.status === "submitting" || state.status === "streaming";
 
@@ -115,6 +134,7 @@ export default function AskWidget() {
     if (!q || busy) return;
     setQuestion("");
     dispatch({ type: "SUBMIT", question: q });
+    stickToBottomRef.current = true; // a fresh question always scrolls itself into view
     // Keep focus on the input after submit (L3 D8) — chips/Try-again unmount on send, which would
     // otherwise drop focus to <body> and scroll the page to the top (the classic chatbot bug). The
     // textarea is always mounted, so this is safe even from a chip click.
@@ -179,6 +199,30 @@ export default function AskWidget() {
   // so the catch stays quiet), which also prevents set-state-after-unmount and a leaked reader.
   useEffect(() => () => abortRef.current?.abort(ABORT_UNMOUNT), []);
 
+  // Return to the base state (M3.2-01 RESET): drop the transcript, clear the input, refocus. Any
+  // in-flight stream is silently cancelled via the existing abort reason (no error is surfaced).
+  function startOver() {
+    abortRef.current?.abort(ABORT_UNMOUNT);
+    stickToBottomRef.current = true;
+    dispatch({ type: "RESET" });
+    setQuestion("");
+    inputRef.current?.focus();
+  }
+
+  // Track whether the user is parked at the bottom of the answer block; once they scroll up, stop
+  // auto-following.
+  function onAnswerScroll() {
+    const el = answerRef.current;
+    if (!el) return;
+    stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+  }
+
+  // Keep the latest streamed tokens in view while sticky — but never override a user scroll-up.
+  useEffect(() => {
+    const el = answerRef.current;
+    if (el && stickToBottomRef.current) el.scrollTop = el.scrollHeight;
+  }, [state.answer, state.status]);
+
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     void ask(question);
@@ -194,6 +238,8 @@ export default function AskWidget() {
 
   const showLive = state.status !== "idle" && state.status !== "done";
   const isEmpty = state.transcript.length === 0 && !showLive;
+  // Pristine initial state — nothing to reset yet, so the refresh control is hidden.
+  const atBase = state.status === "idle" && state.transcript.length === 0;
   const remaining = MAX_CHARS - question.length;
 
   // Announce the SETTLED result once (L3 D8) — empty during submitting/streaming, so the polite
@@ -208,6 +254,34 @@ export default function AskWidget() {
       <div aria-live="polite" aria-atomic="true" style={srOnly}>
         {announcement}
       </div>
+      {/* Header bar: a decorative mono system tag (aria-hidden — the page <h1> is the real heading,
+          not duplicated here) on the left, the start-over control on the right. */}
+      <header className={styles.header}>
+        <span className={styles.headerTag} aria-hidden="true">
+          Portfolio · Q&amp;A
+        </span>
+        {!atBase && (
+          <button
+            type="button"
+            className={styles.reset}
+            onClick={startOver}
+            aria-label="Start over"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+              <polyline points="21 3 21 9 15 9" />
+            </svg>
+          </button>
+        )}
+      </header>
       <div className={styles.transcript}>
         {state.transcript.map((ex, i) => (
           <ExchangeView key={i} question={ex.question} answer={ex.answer} sources={ex.sources} />
@@ -219,6 +293,8 @@ export default function AskWidget() {
             sources={state.sources}
             pending={state.status === "submitting"}
             error={state.status === "error" ? (state.error ?? "stream") : null}
+            answerRef={answerRef}
+            onAnswerScroll={onAnswerScroll}
           />
         )}
         {state.status === "error" && (
@@ -228,7 +304,7 @@ export default function AskWidget() {
         )}
         {isEmpty && (
           <div className={styles.empty}>
-            <p className={styles.emptyHint}>Ask a question to get started, or try one of these:</p>
+            <p className={styles.emptyHint}>Try one of these</p>
             <div className={styles.chips}>
               {SUGGESTED_QUESTIONS.map((q) => (
                 <button
@@ -250,30 +326,36 @@ export default function AskWidget() {
         <label htmlFor="ask-input" style={srOnly}>
           Ask a question about Marlowe
         </label>
-        <textarea
-          id="ask-input"
-          ref={inputRef}
-          className={styles.input}
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          onKeyDown={onKeyDown}
-          rows={3}
-          maxLength={MAX_CHARS}
-          placeholder="What would you like to know?"
-        />
-        <div className={styles.controls}>
+        {/* Terminal-style input: a "›" prompt marker + borderless field inside a 1.5px ink box,
+            with the inverted ASK button butted against it via a 1.5px divider. Behaviour unchanged
+            — submit still fires through the form's onSubmit / Enter handler. */}
+        <div className={styles.inputBox}>
+          <span className={styles.prompt} aria-hidden="true">
+            ›
+          </span>
+          <textarea
+            id="ask-input"
+            ref={inputRef}
+            className={styles.input}
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={onKeyDown}
+            rows={3}
+            maxLength={MAX_CHARS}
+            placeholder="What would you like to know?"
+          />
           <button type="submit" className={styles.send} disabled={busy || !question.trim()}>
             {busy ? "Asking…" : "Ask"}
           </button>
-          {question.length >= COUNTER_FROM && (
-            <span
-              aria-live="polite"
-              className={remaining <= 0 ? `${styles.counter} ${styles.counterOver}` : styles.counter}
-            >
-              {remaining} characters left
-            </span>
-          )}
         </div>
+        {question.length >= COUNTER_FROM && (
+          <span
+            aria-live="polite"
+            className={remaining <= 0 ? `${styles.counter} ${styles.counterOver}` : styles.counter}
+          >
+            {remaining} characters left
+          </span>
+        )}
       </form>
     </section>
   );
