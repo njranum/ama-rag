@@ -1,0 +1,29 @@
+# systemd unit for the Layer-2 query API (M4.1-01 · L2 Hosting).
+#
+# Runs uvicorn under systemd on the Lightsail origin: auto-start on boot, auto-restart on crash,
+# survives reboots. Binds to 127.0.0.1 ONLY — the API is never raw-exposed to the internet; a
+# Caddy reverse proxy (M4.1-02) faces Cloudflare and forwards to it. The app reads secrets from
+# the repo's .env (loaded by config.load_env()), so no EnvironmentFile is needed here.
+#
+# Install on the server:
+#   sudo cp deploy/rag-api.service /etc/systemd/system/rag-api.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now rag-api
+#
+# Assumes: the repo is cloned at /home/ubuntu/ama-rag and the venv is at .venv (uv venv).
+
+[Unit]
+Description=RAG ask-me-anything API (FastAPI/uvicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ama-rag
+ExecStart=/home/ubuntu/ama-rag/.venv/bin/uvicorn query.api:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
