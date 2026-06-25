@@ -105,8 +105,8 @@
 /* Decorative system tag (the page <h1> is the real heading — no title duplicated here). */
 .headerTag {
   font-family: var(--rag-font-mono);
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.82rem;
+  font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--rag-muted);
