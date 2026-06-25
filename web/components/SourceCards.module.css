@@ -7,14 +7,27 @@
 
 .sources {
   margin-top: 0.85rem;
-  padding-top: 0.85rem;
+  padding-top: 0.7rem;
   border-top: 1px solid var(--rag-rule-hair); /* hairline inside the pair: answer -> sources */
 }
 
-/* Inverted label block — provenance assertion ("From Nic's portfolio:"), NOT a causation claim.
+/* Summary line — the whole collapsed/expandable control. A real <button>, laid out as the inverted
+   provenance tag + count + chevron in one row. Focus ring comes from the widget-root rule. */
+.summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--rag-font-mono);
+  cursor: pointer;
+}
+
+/* Inverted label block — provenance assertion ("From Nic's portfolio"), NOT a causation claim.
    Real sentence-case text uppercased in CSS so a screen reader doesn't spell out the caps. */
 .provenance {
-  margin: 0 0 0.55rem;
+  margin: 0;
   display: inline-block;
   padding: 0.12rem 0.45rem;
   background: var(--rag-ink);
@@ -26,10 +39,30 @@
   text-transform: uppercase;
 }
 
+.count {
+  font-size: 0.72rem;
+  color: var(--rag-muted);
+}
+
+.chevron {
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--rag-muted);
+}
+
+.summary:hover .count,
+.summary:hover .chevron {
+  color: var(--rag-ink);
+}
+
 .cardList {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+.cardList[hidden] {
+  display: none; /* out-specifies the flex display so the collapsed panel truly hides */
 }
 
 .card {

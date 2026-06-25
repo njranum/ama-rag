@@ -146,13 +146,10 @@
 }
 
 /* ── Transcript (middle section; rules come from the header / form neighbours) ──────────────── */
-/* Height is auto — the panel grows with content so short/medium answers never scroll. Only past
-   the cap does it become an internal scroll region (Decision 2: bounded, never shoves the page
-   down). Auto-scroll-to-bottom while streaming is handled in the component (sticky unless the user
-   scrolls up). */
+/* The transcript itself is NOT height-capped — the height cap lives on each ANSWER block (below),
+   so a long answer and its source cards no longer compete for one capped, internally-scrolling box
+   (L3 D2). The list grows with the pairs; the page scrolls. */
 .transcript {
-  max-height: min(60vh, 520px);
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -190,7 +187,10 @@
   text-transform: uppercase;
 }
 
-/* The streamed answer body — the ONLY serif surface. */
+/* The streamed answer body — the ONLY serif surface. Owns the pair's height cap: it grows with
+   content and only scrolls when a single answer is genuinely long (L3 D2); short/medium answers
+   never scroll. The collapsed sources line renders BELOW this block, outside its scroll, so sources
+   never eat the answer's height. */
 .answer {
   margin: 0;
   white-space: pre-wrap;
@@ -198,6 +198,8 @@
   font-size: 1.02rem;
   line-height: 1.55;
   color: var(--rag-ink);
+  max-height: min(55vh, 480px);
+  overflow-y: auto;
 }
 
 .errorText {
