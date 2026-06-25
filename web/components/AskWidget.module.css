@@ -57,16 +57,20 @@
   box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  .widget {
-    --rag-ink: #f1efe9; /* light ink on dark paper */
-    --rag-paper: #14130f; /* dark paper */
-    --rag-muted: #a8a39a; /* ~7.6:1 on dark paper */
-    --rag-faint: #928d84; /* ~5.7:1 on dark paper */
-    --rag-rule-hair: #34322c; /* hairline — decorative */
-    --rag-error: #ff8a8a; /* ~6.0:1 on dark paper */
-    /* --rag-rule / --rag-focus track --rag-ink, so they flip with it automatically. */
-  }
+/* Dark palette — gated on the HOST theme, NOT the OS. The widget lives in a light-only host page
+   today, so an OS-level `prefers-color-scheme: dark` would paint the panel dark on a white page
+   (the inverted clash). Instead, dark values apply only when an ancestor opts in via `.dark` or
+   `[data-theme="dark"]` — i.e. when the site grows a real theme toggle. Until then the widget
+   stays paper/light. Vars are preserved so this returns for free (L3 D9). */
+:global(.dark) .widget,
+:global([data-theme="dark"]) .widget {
+  --rag-ink: #f1efe9; /* light ink on dark paper */
+  --rag-paper: #14130f; /* dark paper */
+  --rag-muted: #a8a39a; /* ~7.6:1 on dark paper */
+  --rag-faint: #928d84; /* ~5.7:1 on dark paper */
+  --rag-rule-hair: #34322c; /* hairline — decorative */
+  --rag-error: #ff8a8a; /* ~6.0:1 on dark paper */
+  /* --rag-rule / --rag-focus track --rag-ink, so they flip with it automatically. */
 }
 
 /* Host-proof focus ring on interactive elements (D8 carry-over). The input's ring lives on its
@@ -90,22 +94,64 @@
 
 /* ── Header ─────────────────────────────────────────────────────────────────────────────────── */
 .header {
-  padding: 0.6rem 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem 0.5rem 0.85rem;
   border-bottom: 1.5px solid var(--rag-rule); /* section divider: header / transcript */
 }
 
+/* Decorative system tag (the page <h1> is the real heading — no title duplicated here). */
 .headerTag {
   font-family: var(--rag-font-mono);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
+  color: var(--rag-muted);
+}
+
+/* Refresh / start-over control — ink monospace glyph, square, no fill. */
+.reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--rag-ink);
+  border-radius: 0;
+  background: transparent;
   color: var(--rag-ink);
+  font-family: var(--rag-font-mono);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .reset {
+    transition: background-color 0.12s, color 0.12s;
+  }
+}
+.reset:hover,
+.reset:focus-visible {
+  background: var(--rag-ink); /* invert on hover/focus, matching the chips */
+  color: var(--rag-paper);
+}
+.reset svg {
+  width: 15px;
+  height: 15px;
+  display: block;
 }
 
 /* ── Transcript (middle section; rules come from the header / form neighbours) ──────────────── */
+/* Height is auto — the panel grows with content so short/medium answers never scroll. Only past
+   the cap does it become an internal scroll region (Decision 2: bounded, never shoves the page
+   down). Auto-scroll-to-bottom while streaming is handled in the component (sticky unless the user
+   scrolls up). */
 .transcript {
-  max-height: 360px;
+  max-height: min(60vh, 520px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -329,9 +375,17 @@
 }
 
 .chip:disabled,
-.send:disabled,
 .retry:disabled {
   opacity: 0.45;
+  cursor: default;
+}
+
+/* Disabled ASK reads as an intentional ghost (muted ink outline, no fill) — not a flat grey block. */
+.send:disabled {
+  background: transparent;
+  color: var(--rag-muted);
+  border-left-color: var(--rag-rule-hair);
+  opacity: 0.7;
   cursor: default;
 }
 

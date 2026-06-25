@@ -114,6 +114,10 @@ export default function AskWidget() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const transcriptRef = useRef<HTMLDivElement>(null);
+  // Sticky-bottom flag for the streaming transcript: true while the user is parked at the bottom,
+  // flipped false the moment they scroll up so streamed tokens never yank them back down.
+  const stickToBottomRef = useRef(true);
 
   const busy = state.status === "submitting" || state.status === "streaming";
 
@@ -123,6 +127,7 @@ export default function AskWidget() {
     if (!q || busy) return;
     setQuestion("");
     dispatch({ type: "SUBMIT", question: q });
+    stickToBottomRef.current = true; // a fresh question always scrolls itself into view
     // Keep focus on the input after submit (L3 D8) — chips/Try-again unmount on send, which would
     // otherwise drop focus to <body> and scroll the page to the top (the classic chatbot bug). The
     // textarea is always mounted, so this is safe even from a chip click.
@@ -187,6 +192,29 @@ export default function AskWidget() {
   // so the catch stays quiet), which also prevents set-state-after-unmount and a leaked reader.
   useEffect(() => () => abortRef.current?.abort(ABORT_UNMOUNT), []);
 
+  // Return to the base state (M3.2-01 RESET): drop the transcript, clear the input, refocus. Any
+  // in-flight stream is silently cancelled via the existing abort reason (no error is surfaced).
+  function startOver() {
+    abortRef.current?.abort(ABORT_UNMOUNT);
+    stickToBottomRef.current = true;
+    dispatch({ type: "RESET" });
+    setQuestion("");
+    inputRef.current?.focus();
+  }
+
+  // Track whether the user is parked at the bottom; once they scroll up, stop auto-following.
+  function onTranscriptScroll() {
+    const el = transcriptRef.current;
+    if (!el) return;
+    stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+  }
+
+  // Keep the latest streamed content in view while sticky — but never override a user scroll-up.
+  useEffect(() => {
+    const el = transcriptRef.current;
+    if (el && stickToBottomRef.current) el.scrollTop = el.scrollHeight;
+  }, [state.answer, state.transcript, state.sources, state.status]);
+
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     void ask(question);
@@ -202,6 +230,8 @@ export default function AskWidget() {
 
   const showLive = state.status !== "idle" && state.status !== "done";
   const isEmpty = state.transcript.length === 0 && !showLive;
+  // Pristine initial state — nothing to reset yet, so the refresh control is hidden.
+  const atBase = state.status === "idle" && state.transcript.length === 0;
   const remaining = MAX_CHARS - question.length;
 
   // Announce the SETTLED result once (L3 D8) — empty during submitting/streaming, so the polite
@@ -216,12 +246,35 @@ export default function AskWidget() {
       <div aria-live="polite" aria-atomic="true" style={srOnly}>
         {announcement}
       </div>
-      {/* Panel header tag (archive aesthetic). Decorative mono label; the page <h1> is the real
-          heading, so this is aria-hidden to avoid a duplicate "Ask me anything" for AT. */}
-      <header className={styles.header} aria-hidden="true">
-        <span className={styles.headerTag}>Ask me anything</span>
+      {/* Header bar: a decorative mono system tag (aria-hidden — the page <h1> is the real heading,
+          not duplicated here) on the left, the start-over control on the right. */}
+      <header className={styles.header}>
+        <span className={styles.headerTag} aria-hidden="true">
+          Portfolio · Q&amp;A
+        </span>
+        {!atBase && (
+          <button
+            type="button"
+            className={styles.reset}
+            onClick={startOver}
+            aria-label="Start over"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+              <polyline points="21 3 21 9 15 9" />
+            </svg>
+          </button>
+        )}
       </header>
-      <div className={styles.transcript}>
+      <div className={styles.transcript} ref={transcriptRef} onScroll={onTranscriptScroll}>
         {state.transcript.map((ex, i) => (
           <ExchangeView key={i} question={ex.question} answer={ex.answer} sources={ex.sources} />
         ))}
