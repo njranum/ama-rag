@@ -27,8 +27,16 @@ export default function SourceCards({ sources }: { sources: Source[] }) {
       <div className={styles.cardList}>
         {cards.map((c, i) => (
           <article key={`${c.title}-${i}`} className={styles.card}>
-            <p className={styles.cardTitle}>{c.title}</p>
-            <p className={styles.preview}>…{c.text}</p>
+            <div className={styles.cardHead}>
+              {/* Decorative archive record index (mono). Hidden from AT so a screen reader hears
+                  the title, not "zero-one Tideline…". */}
+              <span className={styles.cardIndex} aria-hidden="true">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <p className={styles.cardTitle}>{c.title}</p>
+            </div>
+            {/* Leading + trailing ellipsis marks the chunk as an excerpt (L3 D5). */}
+            <p className={styles.preview}>…{c.text}…</p>
             {c.url ? (
               <a className={styles.readMore} href={c.url} target="_blank" rel="noopener noreferrer">
                 read more →

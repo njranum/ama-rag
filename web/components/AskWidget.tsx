@@ -11,7 +11,9 @@
  * retry, abort-on-unmount (M3.5 / L3 D7); a11y — hidden polite live region announcing the settled
  * answer/decline/error once, label, focus-stays-on-input, structural prefixes (M3.6 / L3 D8);
  * styling & theming — CSS Modules + root reset, owned custom-property palette, AA contrast,
- * reduced-motion, dark mode (M3.7 / L3 D9).
+ * reduced-motion, dark mode, archive/changelog aesthetic (ink-on-paper, square, mono UI + serif
+ * answer body) (M3.7 / L3 D9). The restyle is purely visual — this component's state machine,
+ * SSE consumption, fetch/abort policy, and a11y contract are unchanged.
  */
 
 import { type FormEvent, type KeyboardEvent, useEffect, useReducer, useRef, useState } from "react";
@@ -85,6 +87,12 @@ function ExchangeView({
     <div className={styles.exchange}>
       <p className={styles.question}>
         <span style={srOnly}>You asked: </span>
+        {/* Inverted mono tag — decorative (the srOnly "You asked:" carries the meaning to AT, so the
+            visible tag is aria-hidden to avoid a duplicate announcement). Sentence-case text with
+            CSS uppercase so a screen reader never spells out the caps. */}
+        <span className={styles.askedTag} aria-hidden="true">
+          Asked
+        </span>
         {question}
       </p>
       {error !== null && answer.length === 0 ? (
@@ -92,7 +100,7 @@ function ExchangeView({
       ) : (
         <p className={styles.answer}>
           <span style={srOnly}>Answer: </span>
-          {answer || (pending ? <span className={styles.pending}>…</span> : "")}
+          {answer || (pending ? <span className={styles.pending}>▋</span> : "")}
           {interrupted && <span className={styles.interrupted}> — the response was interrupted</span>}
         </p>
       )}
@@ -208,6 +216,11 @@ export default function AskWidget() {
       <div aria-live="polite" aria-atomic="true" style={srOnly}>
         {announcement}
       </div>
+      {/* Panel header tag (archive aesthetic). Decorative mono label; the page <h1> is the real
+          heading, so this is aria-hidden to avoid a duplicate "Ask me anything" for AT. */}
+      <header className={styles.header} aria-hidden="true">
+        <span className={styles.headerTag}>Ask me anything</span>
+      </header>
       <div className={styles.transcript}>
         {state.transcript.map((ex, i) => (
           <ExchangeView key={i} question={ex.question} answer={ex.answer} sources={ex.sources} />
@@ -228,7 +241,7 @@ export default function AskWidget() {
         )}
         {isEmpty && (
           <div className={styles.empty}>
-            <p className={styles.emptyHint}>Ask a question to get started, or try one of these:</p>
+            <p className={styles.emptyHint}>Try one of these</p>
             <div className={styles.chips}>
               {SUGGESTED_QUESTIONS.map((q) => (
                 <button
@@ -250,30 +263,36 @@ export default function AskWidget() {
         <label htmlFor="ask-input" style={srOnly}>
           Ask a question about Marlowe
         </label>
-        <textarea
-          id="ask-input"
-          ref={inputRef}
-          className={styles.input}
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          onKeyDown={onKeyDown}
-          rows={3}
-          maxLength={MAX_CHARS}
-          placeholder="What would you like to know?"
-        />
-        <div className={styles.controls}>
+        {/* Terminal-style input: a "›" prompt marker + borderless field inside a 1.5px ink box,
+            with the inverted ASK button butted against it via a 1.5px divider. Behaviour unchanged
+            — submit still fires through the form's onSubmit / Enter handler. */}
+        <div className={styles.inputBox}>
+          <span className={styles.prompt} aria-hidden="true">
+            ›
+          </span>
+          <textarea
+            id="ask-input"
+            ref={inputRef}
+            className={styles.input}
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={onKeyDown}
+            rows={3}
+            maxLength={MAX_CHARS}
+            placeholder="What would you like to know?"
+          />
           <button type="submit" className={styles.send} disabled={busy || !question.trim()}>
             {busy ? "Asking…" : "Ask"}
           </button>
-          {question.length >= COUNTER_FROM && (
-            <span
-              aria-live="polite"
-              className={remaining <= 0 ? `${styles.counter} ${styles.counterOver}` : styles.counter}
-            >
-              {remaining} characters left
-            </span>
-          )}
         </div>
+        {question.length >= COUNTER_FROM && (
+          <span
+            aria-live="polite"
+            className={remaining <= 0 ? `${styles.counter} ${styles.counterOver}` : styles.counter}
+          >
+            {remaining} characters left
+          </span>
+        )}
       </form>
     </section>
   );
