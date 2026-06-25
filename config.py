@@ -44,6 +44,13 @@ PINECONE_REGION: str = "us-east-1"  # Pinecone Starter free-tier constraint
 CHROMA_PATH: str = ".chroma"
 CHROMA_COLLECTION: str = "portfolio"
 
+# --- Vector store backend selection (M4.2-01) -----------------------------------------
+# Selects only the STORE, not the embedding: "chroma" = local Chroma (Phase-1/2 dev),
+# "pinecone" = hosted Pinecone index (Phase-3 prod). Embeddings are Pinecone Inference either way
+# (EMBED_MODEL above). Scores are normalised to cosine similarity (higher=better) in both, so the
+# RELEVANCE_THRESHOLD travels unchanged across the swap. Prod sets VECTOR_STORE=pinecone in .env.
+VECTOR_STORE: str = os.environ.get("VECTOR_STORE", "chroma").strip().lower()
+
 # --- Query pipeline (Layer 2) ----------------------------------------------------------
 TOP_K: int = 4  # retrieved chunks per query (tunable knob)
 # Relevance-gate threshold (cosine similarity, higher-is-better). Calibrated in M2.2-02 against the

@@ -104,3 +104,27 @@ Domain: `nicjranum.uk` (already on Cloudflare). API host: `ama-api.nicjranum.uk`
 *(Note: a **concurrent** 15-burst did NOT trip it — simultaneous requests race Cloudflare's per-IP
 counter; sequential is the reliable test.)* Cloudflare-buffering / unbuffered `text/event-stream`
 pass-through is formally checked at `M4.4-01`.
+
+---
+
+## M4.2-01 — Switch the prod store to the hosted Pinecone index  ✅ (code done; deploy below)
+
+The query service reads from **Pinecone** in prod via `config.VECTOR_STORE=pinecone` (dev stays
+Chroma). Embeddings are Pinecone Inference either way; **explicit embed-then-query on both sides**
+(the index is a plain vector index from M1.2-01 — see the L2 ripple-back). Chroma↔Pinecone parity
+verified (top scores within ≤0.001, identical gate decisions), so the `0.403` threshold is unchanged.
+
+1. **Populate the Pinecone index** (one-off, from any machine with the keys — done locally):
+   ```bash
+   VECTOR_STORE=pinecone python -m ingest.embed_store   # embeds + upserts the corpus to Pinecone
+   ```
+2. **Deploy to the box** (M4.2-01 lives on `M4-Cloud-Rollout` until M4 merges to main):
+   ```bash
+   cd ~/ama-rag
+   git fetch && git checkout M4-Cloud-Rollout && git pull
+   printf '\nVECTOR_STORE=pinecone\n' >> .env          # flip the store to Pinecone (server only)
+   sudo systemctl restart rag-api
+   ```
+3. **Verify:** `curl https://ama-api.nicjranum.uk/v1/ask …` still streams a grounded answer, now
+   served from Pinecone (no local Chroma). The box no longer needs `chromadb` at runtime (lazy
+   import), so it can be slimmed later.
