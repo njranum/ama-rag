@@ -14,13 +14,13 @@ from __future__ import annotations
 import sys
 from typing import Any
 
-import chromadb
 from pinecone import Pinecone
 
 import config
 from ingest.chunker import Chunk, chunk_pages
 
 _EMBED_BATCH = 96  # Pinecone Inference max inputs per embed call
+_UPSERT_BATCH = 100  # Pinecone upsert batch size
 
 
 def _vector(embedding: Any) -> list[float]:
@@ -66,10 +66,48 @@ def embed_chunks(chunks: list[Chunk], *, client: Any = None) -> list[list[float]
 
 def get_collection(*, path: str | None = None, name: str | None = None) -> Any:
     """Open (or create) the local Chroma collection, configured for cosine distance."""
+    import chromadb  # lazy: the Pinecone prod store must not require chromadb at runtime
+
     client = chromadb.PersistentClient(path=path or config.CHROMA_PATH)
     return client.get_or_create_collection(
         name=name or config.CHROMA_COLLECTION, metadata={"hnsw:space": "cosine"}
     )
+
+
+def get_index(*, name: str | None = None, client: Any = None) -> Any:
+    """Open the hosted Pinecone index handle (the Phase-3 prod store)."""
+    pc: Any = client or Pinecone(api_key=config.PINECONE_API_KEY)
+    return pc.Index(name or config.PINECONE_INDEX)
+
+
+def _pinecone_metadata(chunk: Chunk) -> dict[str, Any]:
+    # Pinecone has no separate "documents" field, so the chunk TEXT rides in metadata (Layer 2
+    # reads md["text"]). url/anchor stored as "" (read back as null), matching Chroma's convention.
+    return {
+        "text": chunk.text,
+        "page_id": chunk.page_id,
+        "title": chunk.title,
+        "last_edited_time": chunk.last_edited_time,
+        "chunk_position": chunk.chunk_position,
+        "url": chunk.url or "",
+        "anchor": chunk.anchor or "",
+    }
+
+
+def store_chunks_pinecone(
+    chunks: list[Chunk], vectors: list[list[float]], *, index: Any = None
+) -> int:
+    """Upsert chunks + vectors + metadata (incl. text) into the Pinecone index. Returns count."""
+    if not chunks:
+        return 0
+    idx: Any = index if index is not None else get_index()
+    items = [
+        {"id": _chunk_id(c), "values": v, "metadata": _pinecone_metadata(c)}
+        for c, v in zip(chunks, vectors, strict=True)
+    ]
+    for start in range(0, len(items), _UPSERT_BATCH):
+        idx.upsert(vectors=items[start : start + _UPSERT_BATCH])
+    return len(chunks)
 
 
 def store_chunks(chunks: list[Chunk], vectors: list[list[float]], *, collection: Any = None) -> int:
@@ -127,6 +165,21 @@ def main() -> int:
         print(f"FAIL: {len(bad)} vector(s) not {config.EMBED_DIM}-dim", file=sys.stderr)
         return 1
 
+    question = "What experience does the candidate have with AWS and cloud infrastructure?"
+
+    if config.VECTOR_STORE == "pinecone":
+        idx = get_index(client=pc)
+        n = store_chunks_pinecone(chunks, vectors, index=idx)
+        print(f"Stored {n} chunks -> Pinecone index {config.PINECONE_INDEX!r}\n")
+        res = idx.query(vector=_embed_query(pc, question), top_k=3, include_metadata=True)
+        matches = res["matches"] if isinstance(res, dict) else getattr(res, "matches", [])
+        print(f"sanity query: {question}")
+        for m in matches:
+            md = m["metadata"] if isinstance(m, dict) else m.metadata
+            score = m["score"] if isinstance(m, dict) else m.score
+            print(f"  - {md['title']:<48} cos_sim={float(score):.3f}")
+        return 0
+
     col = get_collection()
     n = store_chunks(chunks, vectors, collection=col)
     print(
@@ -136,7 +189,6 @@ def main() -> int:
 
     # Sanity similarity query (input_type=query) — proves neighbours are sensible.
     # The real query pipeline is M2.1; this only satisfies the M1.5 Verify.
-    question = "What experience does the candidate have with AWS and cloud infrastructure?"
     res = col.query(query_embeddings=[_embed_query(pc, question)], n_results=3)
     print(f"sanity query: {question}")
     for md, dist in zip(res["metadatas"][0], res["distances"][0], strict=True):
