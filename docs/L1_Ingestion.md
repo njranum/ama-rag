@@ -63,6 +63,20 @@ Vector Store  ←  Chroma (local dev) / Pinecone (production)
 - Runs independently of local machine
 - Timed to deploy alongside the query layer's production launch (the query layer runs on Lightsail, not Lambda; ingestion stays on Lambda + EventBridge — the two layers run on different AWS services)
 
+> **Deferred — NOT built (`M4.2-02`, decided 2026-06-26).** The nightly Lambda + EventBridge
+> automation described above is **deliberately not implemented** at portfolio scale. The content is
+> near-static — it changes when Nic edits his portfolio, not on a schedule — so **on-demand
+> re-ingestion, run by hand when content changes** (see `Content_Regeneration_Runbook.md`), is
+> entirely sufficient and far simpler than standing up Lambda packaging + EventBridge + IAM. The
+> automation's cost/complexity buys nothing here. Conscious "defer, don't drop": the script stays
+> stateless and store-agnostic, so the Lambda path can be added later if it's ever wanted.
+>
+> *Consequence:* the **mark-and-sweep incremental sync (`ingest/sync.py`) targets local Chroma
+> only** — it was never wired for Pinecone, since the prod store is refreshed by the manual
+> **clear + re-stamp** in the regeneration runbook, not a nightly diff. (So the line above —
+> "the swap is a content-only mark-and-sweep operation" — holds for local Chroma; the **prod
+> Pinecone** swap is the explicit clear + re-stamp instead.)
+
 ---
 
 ## Decisions Log
