@@ -174,8 +174,13 @@ a **PreToolUse** hook on `Bash` blocking destructive commands (`rm -rf`, force-p
   stateless Lambda). This is the safety boundary holding on *removal*, not just addition.
 - **SSE contract is fixed.** `POST /v1/ask`; events `sources` → `delta`s → `done`; `error` event
   for graceful failures; **`429` *before* the stream opens** (plain JSON), never as an SSE event.
-  Gate decline sends **no `sources` event**; prompt-side decline arrives **with** sources already
-  streamed. `sources` carries `title`, `text`, nullable `url`, reserved nullable `anchor`.
+  **Both** declines are sourceless: the gate decline sends **no `sources` event**, and a
+  prompt-side decline (gate passed, model still declined) has its sources dropped by
+  `pipeline.resolve_sources`, which peeks the stream and withholds `sources` when the answer is
+  exactly the canned decline (no latency cost on a real answer). *(Supersedes the earlier
+  "prompt-side decline arrives with sources already streamed" — the server now decides before
+  emitting `sources`, matching its own `DECLINE_MESSAGE`; see L2 API-contract update, 2026-07-01.)*
+  `sources` carries `title`, `text`, nullable `url`, reserved nullable `anchor`.
 - **CORS = dev AND prod origins.** The allowlist must contain **both** `http://localhost:3000`
   (Phase-2 widget testing) **and** the production site origin (Phase 3). Missing the dev origin
   blocks local testing on a CORS wall.

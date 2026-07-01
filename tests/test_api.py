@@ -75,6 +75,16 @@ def test_gate_decline_sends_no_sources(monkeypatch: pytest.MonkeyPatch) -> None:
     assert decline in body
 
 
+def test_prompt_side_decline_sends_no_sources(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Gate passed (sources retrieved) but the model streamed the canned decline — drop the sources.
+    decline = "Sorry, I don't have information about that."
+    monkeypatch.setattr(pipeline, "run_pipeline", _fake([_SOURCE], [decline]))
+    body = client.post("/v1/ask", json={"question": "weather?"}).text
+    assert "event: sources" not in body
+    assert "event: delta" in body and "event: done" in body
+    assert decline in body
+
+
 def test_rate_limit_returns_429_before_stream(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(pipeline, "run_pipeline", _fake(None, ["x"]))
     monkeypatch.setattr(config, "RATE_LIMIT_PER_MIN", 1)
