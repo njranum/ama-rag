@@ -68,18 +68,12 @@ function ExchangeView({
   sources,
   pending = false,
   error = null,
-  answerRef,
-  onAnswerScroll,
 }: {
   question: string;
   answer: string;
   sources: Source[];
   pending?: boolean;
   error?: ErrorKind | null;
-  // Only the live (streaming) exchange passes these — the answer block is the scroll container the
-  // sticky auto-scroll follows. Completed transcript pairs leave them undefined.
-  answerRef?: React.Ref<HTMLParagraphElement>;
-  onAnswerScroll?: () => void;
 }) {
   // Keep-partial (L3 D7): if tokens already rendered and then an error arrives, keep the real,
   // grounded text and append a muted interruption note — discarding it reads as more broken than
@@ -104,7 +98,7 @@ function ExchangeView({
       {error !== null && answer.length === 0 ? (
         <p className={styles.errorText}>{ERROR_COPY[error]}</p>
       ) : (
-        <p className={styles.answer} ref={answerRef} onScroll={onAnswerScroll}>
+        <p className={styles.answer}>
           <span style={srOnly}>Answer: </span>
           {answer || (pending ? <span className={styles.pending}>▋</span> : "")}
           {interrupted && <span className={styles.interrupted}> — the response was interrupted</span>}
@@ -120,10 +114,11 @@ export default function AskWidget() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  // The live answer block is the scroll container the auto-follow targets (the height cap lives on
-  // the answer, not the whole transcript — L3 D2). Sticky-bottom flag: true while the user is parked
-  // at the bottom, flipped false the moment they scroll up so streamed tokens never yank them down.
-  const answerRef = useRef<HTMLParagraphElement>(null);
+  // The transcript is the bounded scroll container the auto-follow targets (the height cap lives on
+  // the transcript window, not each answer — revises L3 D2). Sticky-bottom flag: true while the user
+  // is parked at the bottom, flipped false the moment they scroll up so streamed tokens / new pairs
+  // never yank them down.
+  const transcriptRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
 
   const busy = state.status === "submitting" || state.status === "streaming";
@@ -209,19 +204,20 @@ export default function AskWidget() {
     inputRef.current?.focus();
   }
 
-  // Track whether the user is parked at the bottom of the answer block; once they scroll up, stop
-  // auto-following.
-  function onAnswerScroll() {
-    const el = answerRef.current;
+  // Track whether the user is parked at the bottom of the transcript; once they scroll up, stop
+  // auto-following so a long history stays put while they read.
+  function onTranscriptScroll() {
+    const el = transcriptRef.current;
     if (!el) return;
     stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
   }
 
-  // Keep the latest streamed tokens in view while sticky — but never override a user scroll-up.
+  // Keep the newest content (streamed tokens or a freshly-committed pair) pinned to the bottom while
+  // sticky — but never override a user scroll-up. Runs on token growth AND on a new committed pair.
   useEffect(() => {
-    const el = answerRef.current;
+    const el = transcriptRef.current;
     if (el && stickToBottomRef.current) el.scrollTop = el.scrollHeight;
-  }, [state.answer, state.status]);
+  }, [state.answer, state.status, state.transcript.length]);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -282,7 +278,7 @@ export default function AskWidget() {
           </button>
         )}
       </header>
-      <div className={styles.transcript}>
+      <div className={styles.transcript} ref={transcriptRef} onScroll={onTranscriptScroll}>
         {state.transcript.map((ex, i) => (
           <ExchangeView key={i} question={ex.question} answer={ex.answer} sources={ex.sources} />
         ))}
@@ -293,8 +289,6 @@ export default function AskWidget() {
             sources={state.sources}
             pending={state.status === "submitting"}
             error={state.status === "error" ? (state.error ?? "stream") : null}
-            answerRef={answerRef}
-            onAnswerScroll={onAnswerScroll}
           />
         )}
         {state.status === "error" && (

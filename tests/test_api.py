@@ -43,10 +43,15 @@ def test_overlong_question_returns_400() -> None:
     assert client.post("/v1/ask", json={"question": "x" * 501}).status_code == 400
 
 
-def test_cors_allows_localhost(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("origin", ["http://localhost:3000", "http://127.0.0.1:3000"])
+def test_cors_allows_both_dev_loopback_spellings(
+    monkeypatch: pytest.MonkeyPatch, origin: str
+) -> None:
+    # A browser on 127.0.0.1:3000 sends a *different* Origin than localhost:3000 — both must pass,
+    # or local widget testing hits a silent CORS wall (the M2.4 CORS trap).
     monkeypatch.setattr(pipeline, "run_pipeline", _fake([_SOURCE], ["hi"]))
-    r = client.post("/v1/ask", json={"question": "hi"}, headers={"Origin": "http://localhost:3000"})
-    assert r.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    r = client.post("/v1/ask", json={"question": "hi"}, headers={"Origin": origin})
+    assert r.headers.get("access-control-allow-origin") == origin
 
 
 def test_cors_blocks_unknown_origin(monkeypatch: pytest.MonkeyPatch) -> None:

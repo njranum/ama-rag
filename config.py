@@ -72,7 +72,10 @@ GEN_TIMEOUT_S: float = 20.0  # request timeout; on any error we surface a gracef
 MAX_QUESTION_CHARS: int = 500  # cap doubles as a cheap abuse/cost guard
 RATE_LIMIT_PER_MIN: int = 30  # app-level backstop; edge limits tuned at M4.1 (Cloudflare)
 # CORS allowlist: local dev origin always; production site origin added once known (env).
-CORS_ORIGINS: list[str] = ["http://localhost:3000"] + (
+# Dev origins: BOTH spellings of the loopback — a browser on http://127.0.0.1:3000 sends that as
+# its Origin, which is a *different* origin to http://localhost:3000 as far as CORS is concerned, so
+# listing only one blocks local testing on the other with a silent CORS wall (the M2.4 CORS trap).
+CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"] + (
     [os.environ["PROD_SITE_ORIGIN"]] if os.environ.get("PROD_SITE_ORIGIN") else []
 )
 
