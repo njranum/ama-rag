@@ -7,7 +7,7 @@ and only from curated content: nothing outside the knowledge base can ever surfa
 
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black)
-![License](https://img.shields.io/badge/license-private-lightgrey)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 <!-- HERO: the widget mid-answer — streamed text with source cards below. ~900px wide. -->
 ![The ask-me-anything widget answering a question, with source cards](docs/screenshots/hero_answer.png)
@@ -75,118 +75,50 @@ design is settled and documented in [`docs/`](docs/); this repo is the execution
 
 ## Architecture
 
-A RAG system is really **two pipelines that run at different times**, joined at a single seam —
-they must embed text with the *exact same* hosted model, or retrieval is meaningless. The
-zoom-out design lives in [`docs/RAG_System_Architecture.md`](docs/RAG_System_Architecture.md);
-the diagrams below are the shape of it.
+A RAG system is really **two pipelines that run at different times**, joined at a single seam:
+they must embed text with the *exact same* hosted model, or retrieval is meaningless. In
+production that seam is the **Pinecone** index — the **offline** ingestion pipeline writes to it
+on a schedule, and the **online** query pipeline reads from it per request. The zoom-out design
+lives in [`docs/RAG_System_Architecture.md`](docs/RAG_System_Architecture.md).
 
-### The two pipelines
+### Production topology
 
-The **offline** pipeline prepares the knowledge base ahead of time; the **online** pipeline runs
-per request. The embedding model (`llama-text-embed-v2` @ 384-dim on Pinecone Inference) is the
-seam they share — `input_type=passage` when ingesting, `query` when asking.
+Ingestion runs unattended on **Lambda + EventBridge**; serving runs on an **always-warm Lightsail
+VPS behind Cloudflare**, so the SSE connection streams natively with no proxy buffering. Both
+pipelines meet at **Pinecone** — ingestion embeds each chunk as `passage` and upserts; the query
+path embeds the question as `query` and retrieves the top-k. Secrets (Pinecone, Anthropic) live
+only on Lightsail — the browser widget holds none.
+
+<p align="center">
+  <img src="docs/diagrams/prod-topology.svg" alt="Production topology: scheduled ingestion (EventBridge → Lambda → Notion) and per-request serving (React widget → Cloudflare → Lightsail → Claude), both meeting at the Pinecone index" width="100%">
+</p>
+
+<sub>The dashed path is the streamed **SSE** response — `sources` once up front, then per-token `delta`s, then `done` — mirroring the request back through Cloudflare to the widget.</sub>
+
+### Inside the RAG pipeline
+
+What the `FastAPI /v1/ask` box does on each request. A **hybrid relevance gate** short-circuits
+off-topic questions with a canned decline *before* Claude is ever called — cheap, hallucination-proof,
+and injection-resistant. A decline and a real answer both leave through the **same SSE assembly**,
+so the widget has one code path for both; the difference is only that a gate decline sends **no
+`sources` event**, while a real answer streams `sources` once up front, then the `delta`s.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif','lineColor':'#94a3b8'}}}%%
 flowchart LR
-    subgraph OFFLINE["① OFFLINE — Ingestion (Layer 1) · scheduled"]
-        direction LR
-        NOTION["Notion<br/>Portfolio pages"] --> CHUNK["Chunk<br/>~500-tok + overlap"]
-        CHUNK --> EMBEDP["Embed (passage)<br/>Pinecone Inference"]
-        EMBEDP --> STORE[("Vector store<br/>Chroma dev / Pinecone prod")]
-    end
+    Q["question<br/>(from widget)"] --> EMBEDQ["embed(query)<br/>Pinecone Inference"]
+    EMBEDQ --> RETR["retrieve top-k=4<br/>cosine similarity"]
+    RETR --> GATE{"relevance<br/>gate"}
+    GATE -->|"off-topic<br/>(below threshold)"| DECLINE["canned decline<br/>no LLM call"]
+    GATE -->|clears| PROMPT["grounded prompt<br/>3rd-person, sources only"]
+    PROMPT --> GEN["Claude Haiku 4.5<br/>streamed"]
+    GEN --> SSE["SSE assembly<br/>sources → delta → done"]
+    DECLINE -->|"delta → done<br/>(no sources)"| SSE
 
-    subgraph ONLINE["② ONLINE — Query + Serving (Layer 2) · per request"]
-        direction LR
-        Q["Question"] --> EMBEDQ["Embed (query)"]
-        EMBEDQ --> RETR["Retrieve top-k=4<br/>cosine similarity"]
-        RETR --> GATE{"Relevance<br/>gate?"}
-        GATE -->|below threshold| DECLINE["Canned decline<br/>(no LLM call)"]
-        GATE -->|clears| PROMPT["Grounded prompt"]
-        PROMPT --> GEN["Claude Haiku 4.5<br/>streamed"]
-    end
-
-    subgraph CLIENT["③ Browser (Layer 3)"]
-        WIDGET["React widget<br/>SSE consumer"]
-    end
-
-    STORE -.->|shared embedding space| RETR
-    GEN --> API["FastAPI POST /v1/ask<br/>SSE: sources → delta → done"]
-    DECLINE --> API
-    API --> WIDGET
-
-    classDef store fill:#4f46e5,stroke:#3730a3,color:#fff
     classDef gate fill:#f59e0b,stroke:#b45309,color:#fff
     classDef gen fill:#e05252,stroke:#b91c1c,color:#fff
-    class STORE store
     class GATE gate
     class GEN,DECLINE gen
-```
-
-### A single request, end to end
-
-The SSE contract is the wide, shallow seam between the API and the widget. `sources` is sent
-**once, up front** (so the widget can render cards while the answer generates); a gate decline
-sends **no** `sources` event and streams the canned message as `delta` + `done`, so the widget
-has one code path for answer and decline alike.
-
-```mermaid
-%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif','lineColor':'#94a3b8'}}}%%
-sequenceDiagram
-    participant W as Widget
-    participant A as FastAPI /v1/ask
-    participant P as Pipeline
-    participant L as Claude Haiku 4.5
-
-    W->>A: POST { question }
-    alt over rate limit
-        A-->>W: 429 (before stream opens)
-    else question too long
-        A-->>W: 400
-    else accepted
-        A->>P: run_pipeline(question)
-        P->>P: embed → retrieve top-k → relevance gate
-        alt gate declines
-            A-->>W: delta (canned decline) → done
-        else gate clears
-            A-->>W: event: sources  (once, up front)
-            P->>L: grounded prompt (streamed)
-            loop each token
-                L-->>A: token
-                A-->>W: event: delta
-            end
-            A-->>W: event: done
-        end
-    end
-```
-
-### The widget is an explicit state machine
-
-The renderer never touches the network directly — a typed `useReducer` owns all state and moves
-through a small, explicit machine. A `429` is caught **pre-stream**; a *mid-stream* error keeps
-the partial answer already shown rather than blanking it.
-
-```mermaid
-%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif','lineColor':'#94a3b8'}}}%%
-stateDiagram-v2
-    direction LR
-    [*] --> idle
-    idle --> submitting : ask(question)
-    submitting --> streaming : first event (sources / delta)
-    submitting --> error : 429 / 400 / timeout
-    streaming --> done : done event
-    streaming --> error : mid-stream error (keeps partial)
-    done --> submitting : ask again
-    error --> submitting : retry
-
-    classDef idle fill:#64748b,stroke:#475569,color:#fff
-    classDef active fill:#4f46e5,stroke:#3730a3,color:#fff
-    classDef ok fill:#16a34a,stroke:#15803d,color:#fff
-    classDef bad fill:#e05252,stroke:#b91c1c,color:#fff
-    class idle idle
-    class submitting,streaming active
-    class done ok
-    class error bad
 ```
 
 ## Tech stack
