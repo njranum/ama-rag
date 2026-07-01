@@ -5,8 +5,6 @@ questions about his background and get **grounded, conversational answers**, str
 token with the exact source passages cited. The model answers *about* Nic, in the third person,
 and only from curated content: nothing outside the knowledge base can ever surface in an answer.
 
-<!-- Badges — the CI badge is a placeholder until a GitHub Actions workflow exists (see Status). -->
-[![CI](https://github.com/njranum/ama-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/njranum/ama-rag/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
@@ -16,7 +14,7 @@ and only from curated content: nothing outside the knowledge base can ever surfa
 
 ## Why it exists
 
-A résumé is a static list; a recruiter's real questions ("has he shipped anything with
+A CV is a static list; a recruiter's real questions ("has he shipped anything with
 streaming?", "what's his cloud experience?") don't have a fixed place on the page. This is a
 retrieval-augmented widget that answers those questions in Nic's own documented words — pulling
 the relevant passages from a curated Notion knowledge base, grounding the model in them, and
@@ -287,6 +285,3 @@ code lineage.
 - **M3** — Layer 3 widget: the `'use client'` SSE consumer, source cards, accessibility, suggested-question chips.
 - **M4** — cloud rollout: prod Pinecone, Lightsail + Cloudflare, ingestion on Lambda + EventBridge, real-content swap, end-to-end verification.
 - **Next** — the public portfolio content pages the source links point to, then observability / cost / answer-quality (a future Layer 4).
-
-> **CI badge** at the top is a placeholder — add a `.github/workflows/ci.yml` that runs the checks
-> above (ruff · mypy · pytest, plus `web/` typecheck · vitest) to make it live.
