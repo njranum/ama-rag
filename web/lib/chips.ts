@@ -8,7 +8,8 @@
  *
  * Selection: each is drawn from the regenerated real should-answer set and clears the relevance
  * gate with margin on the real corpus (M4.2-03 calibration: Gentrack 0.50, languages 0.57, role
- * 0.46, Fix My Vibe 0.54 — all well above the 0.375 gate), so a chip never demos a decline. The
+ * 0.46, Fix My Vibe 0.54 — all well above the 0.34 gate, re-locked 2026-07-01), so a chip never
+ * demos a decline. The
  * four span experience / skills / hiring-fit / a signature project for a varied first impression.
  *
  * Regenerated from the synthetic Marlowe Finch set at the M4.2-03 content swap. The eval set lives

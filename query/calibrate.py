@@ -3,11 +3,17 @@
 Runs the M2.1 retrieval over the eval set (M2.2-01), records each question's top similarity, and
 sets the relevance-gate threshold at the BOTTOM of the should-answer range (just below the lowest
 should-answer score) — so genuine questions are almost never hard-rejected, while clear garbage is
-caught. Also reports overlap (should-refuse leaking past the threshold) and the weak-but-cleared
-middle that the prompt-side decline (M2.3-01) must backstop.
+caught.
 
-The threshold is empirical and content-specific; on the synthetic corpus it is a provisional
-working choice, re-locked on real content at M4.2-03. See docs/L2_Query_Pipeline.md (calibration).
+The gate is measured against the `offtopic` refuses ONLY — those are the gate's job. The `about_nic`
+refuses (about Nic but not in the corpus) retrieve his pages with real similarity and are *meant* to
+clear the gate; the prompt-side decline (M2.3-01) backstops them. A clean gap therefore means
+"highest off-topic score < lowest should-answer score", NOT "highest of all refuses" — mixing the
+about-Nic cluster in makes a clean gap impossible on real content and hides the real signal.
+
+The threshold is empirical and content-specific; on the synthetic corpus it was a provisional
+working choice, re-locked on real content at M4.2-03 and re-lowered 2026-07-01 (casual phrasings).
+See docs/L2_Query_Pipeline.md (calibration).
 
 Run from the repo root:  python -m query.calibrate
 """
@@ -29,26 +35,37 @@ from query.retrieval import retrieve
 @dataclass(frozen=True)
 class CalibrationReport:
     lowest_answer: float
-    highest_refuse: float
+    highest_offtopic: float
     threshold: float
     clean_gap: bool
-    refuse_leaks: int
+    offtopic_leaks: int
+    about_nic_leaks: int
     margin: float
 
 
 def calibrate(
-    answer_scores: list[float], refuse_scores: list[float], *, margin: float = 0.01
+    answer_scores: list[float],
+    offtopic_scores: list[float],
+    about_nic_scores: list[float],
+    *,
+    margin: float = 0.01,
 ) -> CalibrationReport:
-    """Set the threshold just below the lowest should-answer score (the bottom of the gap)."""
+    """Threshold just below the lowest should-answer score; gap measured against off-topic only.
+
+    `offtopic_leaks` (off-topic clearing the gate) is the real failure signal and should be 0.
+    `about_nic_leaks` is expected and non-zero — those clear the gate by design and are refused by
+    the prompt-side decline (M2.3-01).
+    """
     lowest_answer = min(answer_scores)
-    highest_refuse = max(refuse_scores)
+    highest_offtopic = max(offtopic_scores)
     threshold = round(lowest_answer - margin, 4)
     return CalibrationReport(
         lowest_answer=lowest_answer,
-        highest_refuse=highest_refuse,
+        highest_offtopic=highest_offtopic,
         threshold=threshold,
-        clean_gap=highest_refuse < lowest_answer,
-        refuse_leaks=sum(1 for s in refuse_scores if s >= threshold),
+        clean_gap=highest_offtopic < lowest_answer,
+        offtopic_leaks=sum(1 for s in offtopic_scores if s >= threshold),
+        about_nic_leaks=sum(1 for s in about_nic_scores if s >= threshold),
         margin=margin,
     )
 
@@ -72,28 +89,31 @@ def main() -> int:
 
     scored = score_questions(EVAL_SET, client=pc, collection=collection)
     answers = [(eq, s) for eq, s in scored if eq.expect == "answer"]
-    refuses = [(eq, s) for eq, s in scored if eq.expect == "refuse"]
-    report = calibrate([s for _, s in answers], [s for _, s in refuses])
+    offtopic = [(eq, s) for eq, s in scored if eq.kind == "offtopic"]
+    about_nic = [(eq, s) for eq, s in scored if eq.kind == "about_nic"]
+    report = calibrate(
+        [s for _, s in answers],
+        [s for _, s in offtopic],
+        [s for _, s in about_nic],
+    )
 
     print("=== should-answer (low to high) ===")
     for eq, s in sorted(answers, key=lambda r: r[1]):
         print(f"  {s:5.3f}  {eq.question}")
-    print("\n=== should-refuse (high to low) ===")
-    for eq, s in sorted(refuses, key=lambda r: r[1], reverse=True):
+    print("\n=== should-refuse · off-topic / injection (gate's job — high to low) ===")
+    for eq, s in sorted(offtopic, key=lambda r: r[1], reverse=True):
+        print(f"  {s:5.3f}  {eq.question}")
+    print("\n=== should-refuse · about-Nic-but-unanswerable (decline's job — high to low) ===")
+    for eq, s in sorted(about_nic, key=lambda r: r[1], reverse=True):
         print(f"  {s:5.3f}  {eq.question}")
 
     print("\n=== calibration ===")
-    print(f"lowest should-answer : {report.lowest_answer:.3f}")
-    print(f"highest should-refuse: {report.highest_refuse:.3f}")
-    print(f"clean gap?           : {report.clean_gap}")
-    print(f"recommended threshold: {report.threshold:.3f}  (lowest_answer - {report.margin})")
-    print(f"should-refuse leaking past threshold: {report.refuse_leaks}")
-
-    weak = [(eq, s) for eq, s in answers if s < report.highest_refuse]
-    print(f"\nweak-but-cleared (should-answer below the worst off-topic score): {len(weak)}")
-    for eq, s in sorted(weak, key=lambda r: r[1]):
-        print(f"  {s:5.3f}  {eq.question}")
-    print("\n  -> the prompt-side decline (M2.3-01) backstops these.")
+    print(f"lowest should-answer     : {report.lowest_answer:.3f}")
+    print(f"highest off-topic        : {report.highest_offtopic:.3f}")
+    print(f"clean gap (vs off-topic)?: {report.clean_gap}")
+    print(f"recommended threshold    : {report.threshold:.3f}  (lowest_answer - {report.margin})")
+    print(f"off-topic leaking gate   : {report.offtopic_leaks}  (must be 0 — real failure signal)")
+    print(f"about-Nic clearing gate  : {report.about_nic_leaks}  (expected — decline backstops)")
     return 0
 
 
