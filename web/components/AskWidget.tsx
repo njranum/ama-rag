@@ -324,7 +324,7 @@ export default function AskWidget() {
 
       <form className={styles.form} onSubmit={onSubmit}>
         <label htmlFor="ask-input" style={srOnly}>
-          Ask a question about Marlowe
+          Ask a question about Nic
         </label>
         {/* Terminal-style input: a "›" prompt marker + borderless field inside a 1.5px ink box,
             with the inverted ASK button butted against it via a 1.5px divider. Behaviour unchanged

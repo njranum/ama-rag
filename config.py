@@ -53,11 +53,14 @@ VECTOR_STORE: str = os.environ.get("VECTOR_STORE", "chroma").strip().lower()
 
 # --- Query pipeline (Layer 2) ----------------------------------------------------------
 TOP_K: int = 4  # retrieved chunks per query (tunable knob)
-# Relevance-gate threshold (cosine similarity, higher-is-better). Calibrated in M2.2-02 against the
-# Phase-1 eval set: sits just below the lowest should-answer score (0.413), rejecting all 15
-# should-refuse (highest 0.402) — a clean but narrow gap. PROVISIONAL (synthetic corpus); re-locked
-# on real content at M4.2-03. Re-derive with `python -m query.calibrate`.
-RELEVANCE_THRESHOLD: float = 0.403
+# Relevance-gate threshold (cosine similarity, higher-is-better). LOCKED on the real corpus at
+# M4.2-03: sits just below the lowest should-answer score (0.385, "what is pomobar?"). Catches all
+# off-topic + both injection attempts (highest such ≈ 0.24). No clean gap — three *unanswerable-
+# about-Nic* questions ("car", "political views", "star sign", 0.44–0.48) retrieve his pages and
+# clear the gate; by design the prompt-side decline (M2.3-01) backstops that weak-but-cleared
+# middle rather than hard-rejecting genuine questions. Supersedes the provisional synthetic 0.403.
+# Re-derive with `python -m query.calibrate`.
+RELEVANCE_THRESHOLD: float = 0.375
 
 # --- Generation (Layer 2, Stage 4) — Claude Haiku 4.5 via the Anthropic Messages API ---
 GEN_MODEL: str = "claude-haiku-4-5"  # bare alias; grounded extractive QA — smallest model is plenty

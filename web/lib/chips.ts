@@ -6,19 +6,19 @@
  * The eval set lives in the Python backend and can't be imported across the layer boundary, so this
  * is a hand-picked, provenance-tagged copy rather than a runtime import.
  *
- * Selection: each of these was exercised live against the local FastAPI + Chroma stack and returned
- * a STRONG grounded answer (gate cleared + a real answer, not a hedge). Candidates that answered
- * weakly on the synthetic corpus were dropped — "Where does Marlowe currently work?" (retrieval
- * missed Orrery) and "What open source work has Marlowe done?" (hedged decline). The four kept span
- * project / skills / hiring-fit / origin-story for a varied first impression.
+ * Selection: each is drawn from the regenerated real should-answer set and clears the relevance
+ * gate with margin on the real corpus (M4.2-03 calibration: Gentrack 0.50, languages 0.57, role
+ * 0.46, Fix My Vibe 0.54 — all well above the 0.375 gate), so a chip never demos a decline. The
+ * four span experience / skills / hiring-fit / a signature project for a varied first impression.
  *
- * PROVISIONAL — grounded in the synthetic Marlowe Finch corpus; re-pick from the regenerated
- * should-answer set when real content lands at M4.2-03 (re-validate live before shipping).
+ * Regenerated from the synthetic Marlowe Finch set at the M4.2-03 content swap. The eval set lives
+ * in the Python backend and can't be imported across the layer boundary, so this is a hand-picked,
+ * provenance-tagged copy rather than a runtime import.
  */
 
 export const SUGGESTED_QUESTIONS: readonly string[] = [
-  "What is the Tideline project?",
-  "What programming languages does Marlowe use?",
-  "What kind of role is Marlowe looking for?",
-  "What did Marlowe do before becoming a software engineer?",
+  "What did Nic do at Gentrack?",
+  "What programming languages is Nic strongest in?",
+  "What kind of role is Nic looking for?",
+  "What is Fix My Vibe?",
 ];
