@@ -89,43 +89,11 @@ pipelines meet at **Pinecone** — ingestion embeds each chunk as `passage` and 
 path embeds the question as `query` and retrieves the top-k. Secrets (Pinecone, Anthropic) live
 only on Lightsail — the browser widget holds none.
 
-```mermaid
-%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif','lineColor':'#94a3b8'}}}%%
-flowchart LR
-    subgraph OFFLINE["① OFFLINE · Ingestion — scheduled, no user"]
-        direction TB
-        EB["EventBridge<br/>cron schedule"] --> LAMBDA["AWS Lambda<br/>ingest job"]
-        NOTION["Notion API<br/>/Portfolio subtree"] -.->|fetch| LAMBDA
-    end
+<p align="center">
+  <img src="docs/diagrams/prod-topology.svg" alt="Production topology: scheduled ingestion (EventBridge → Lambda → Notion) and per-request serving (React widget → Cloudflare → Lightsail → Claude), both meeting at the Pinecone index" width="100%">
+</p>
 
-    PINE[("Pinecone<br/>vector store + Inference embeddings<br/>llama-text-embed-v2 · 384-dim")]
-    LAMBDA -->|"chunk → embed(passage) → upsert"| PINE
-
-    subgraph BROWSER["③ Visitor's browser — holds NO secrets"]
-        WIDGET["Portfolio site<br/>React SSE widget"]
-    end
-
-    subgraph EDGE["Cloudflare edge"]
-        CF["TLS · DDoS · rate-limit"]
-    end
-
-    subgraph LS["② AWS Lightsail — always-warm VPS (keys live here)"]
-        API["FastAPI POST /v1/ask<br/>RAG pipeline"]
-    end
-
-    CLAUDE["Claude Haiku 4.5 API<br/>streamed"]
-
-    WIDGET -->|POST question| CF -->|HTTPS| API
-    API -->|"embed(query) → top-k=4"| PINE
-    API -->|grounded prompt| CLAUDE
-    CLAUDE -->|tokens| API
-    API -.->|"SSE: sources → delta → done"| CF -.-> WIDGET
-
-    classDef seam fill:#4f46e5,stroke:#3730a3,color:#fff
-    classDef gen fill:#e05252,stroke:#b91c1c,color:#fff
-    class PINE seam
-    class CLAUDE gen
-```
+<sub>The dashed path is the streamed **SSE** response — `sources` once up front, then per-token `delta`s, then `done` — mirroring the request back through Cloudflare to the widget.</sub>
 
 ### Inside the RAG pipeline
 
