@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from query.gate import DECLINE_MESSAGE
 from query.prompt import SYSTEM_PROMPT, build_messages, build_user_message
 from query.retrieval import RetrievedChunk
 
@@ -18,6 +19,14 @@ def test_user_message_tags_sources_best_first_without_scores() -> None:
     )
     assert msg.endswith("Question: What does Nic do?")
     assert "0.9" not in msg and "0.4" not in msg  # similarity scores never reach the model
+
+
+def test_prompt_forces_the_exact_decline_verbatim() -> None:
+    # The prompt-side decline must be byte-identical to DECLINE_MESSAGE, or resolve_sources'
+    # exact-match source-suppression misses a paraphrase and leaks sources onto the screen.
+    assert DECLINE_MESSAGE in SYSTEM_PROMPT
+    assert "verbatim" in SYSTEM_PROMPT
+    assert "for example" not in SYSTEM_PROMPT  # the old, paraphrase-inviting wording is gone
 
 
 def test_build_messages_sends_system_verbatim_single_turn() -> None:
