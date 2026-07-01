@@ -3,8 +3,10 @@
 Stateless single-turn endpoint. Validates + caps the question (400), enforces a CORS allowlist and
 an app-level rate limit (HTTP 429 *before* the stream opens), then streams Server-Sent Events:
 `sources` (once, up front) -> `delta` (per token) -> `done`, with an `error` event on failure.
-A gate decline sends **no** `sources` event; the canned decline streams as `delta` + `done`
-(one widget code path for answer vs decline). See docs/L2_Query_Pipeline.md (API contract).
+Any decline sends **no** `sources` event — the gate decline is sourceless up front, and a
+prompt-side decline (gate passed, model still declined) has its sources dropped by peeking the
+stream (see `pipeline.resolve_sources`); the canned decline streams as `delta` + `done` (one widget
+code path for answer vs decline). See docs/L2_Query_Pipeline.md (API contract).
 
 Run:  uvicorn query.api:app --reload --port 8000
 """
@@ -63,6 +65,9 @@ def _source_payload(chunk: RetrievedChunk) -> dict[str, object]:
 def _event_stream(question: str) -> Iterator[str]:
     try:
         sources, tokens = pipeline.run_pipeline(question)
+        # A prompt-side decline (gate passed, model still declined) shows no sources either — peek
+        # the stream and drop them so it matches the gate-decline path from the widget's view.
+        sources, tokens = pipeline.resolve_sources(sources, tokens)
         if sources is not None:
             yield _sse("sources", {"sources": [_source_payload(c) for c in sources]})
         for token in tokens:

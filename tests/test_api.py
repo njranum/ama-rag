@@ -43,10 +43,15 @@ def test_overlong_question_returns_400() -> None:
     assert client.post("/v1/ask", json={"question": "x" * 501}).status_code == 400
 
 
-def test_cors_allows_localhost(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("origin", ["http://localhost:3000", "http://127.0.0.1:3000"])
+def test_cors_allows_both_dev_loopback_spellings(
+    monkeypatch: pytest.MonkeyPatch, origin: str
+) -> None:
+    # A browser on 127.0.0.1:3000 sends a *different* Origin than localhost:3000 — both must pass,
+    # or local widget testing hits a silent CORS wall (the M2.4 CORS trap).
     monkeypatch.setattr(pipeline, "run_pipeline", _fake([_SOURCE], ["hi"]))
-    r = client.post("/v1/ask", json={"question": "hi"}, headers={"Origin": "http://localhost:3000"})
-    assert r.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    r = client.post("/v1/ask", json={"question": "hi"}, headers={"Origin": origin})
+    assert r.headers.get("access-control-allow-origin") == origin
 
 
 def test_cors_blocks_unknown_origin(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -69,6 +74,16 @@ def test_sse_event_ordering_sources_delta_done(monkeypatch: pytest.MonkeyPatch) 
 def test_gate_decline_sends_no_sources(monkeypatch: pytest.MonkeyPatch) -> None:
     decline = "Sorry, I don't have information about that."
     monkeypatch.setattr(pipeline, "run_pipeline", _fake(None, [decline]))
+    body = client.post("/v1/ask", json={"question": "weather?"}).text
+    assert "event: sources" not in body
+    assert "event: delta" in body and "event: done" in body
+    assert decline in body
+
+
+def test_prompt_side_decline_sends_no_sources(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Gate passed (sources retrieved) but the model streamed the canned decline — drop the sources.
+    decline = "Sorry, I don't have information about that."
+    monkeypatch.setattr(pipeline, "run_pipeline", _fake([_SOURCE], [decline]))
     body = client.post("/v1/ask", json={"question": "weather?"}).text
     assert "event: sources" not in body
     assert "event: delta" in body and "event: done" in body
