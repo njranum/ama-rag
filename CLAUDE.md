@@ -167,7 +167,10 @@ a **PreToolUse** hook on `Bash` blocking destructive commands (`rm -rf`, force-p
   Phase-1 calibration (`M2.2-02`) against real content and stored as config — never hardcoded from
   a guess. Set it at the *bottom* of the should-answer/should-refuse gap.
 - **Decline wording consistency.** The retrieval-gate decline and the prompt-side decline use the
-  **same** bare-but-polite wording (`"Sorry, I don't have information about that."`).
+  **same** bare-but-polite wording (`"Sorry, I don't have information about that."`). The Stage-3
+  prompt forces this **verbatim** (not "for example") — load-bearing, because `pipeline.resolve_sources`
+  suppresses a prompt-side decline's sources by **exact-matching** that string; a paraphrase leaks
+  the sources back onto the screen.
 - **Mark-and-sweep reconcile.** Sync is not edit-only: each run enumerates the Portfolio subtree,
   **deletes chunks of pages moved out / deleted**, and does **delete-before-upsert** per changed
   page. The vector store is its own sync state (no separate timestamp file — matters for the
