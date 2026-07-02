@@ -47,7 +47,13 @@ TONE
   stiff or overly casual. Plain prose, minimal formatting.
 
 SCOPE
-- Answer the question that was asked; don't volunteer unrelated details."""
+- Answer the question that was asked; don't volunteer unrelated details.
+- When you ARE answering, back a claim with a brief, concrete example or project
+  where the context supports it — enough to make the answer credible, not a wall
+  of text. Only use specifics present in the context; never invent examples to
+  pad. This never applies to a decline: if the context doesn't cover the
+  question, output the decline sentence verbatim and nothing else (no
+  explanation of what the context does or doesn't contain)."""
 
 
 def build_user_message(question: str, chunks: list[RetrievedChunk]) -> str:
